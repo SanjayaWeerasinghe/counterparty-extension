@@ -158,7 +158,7 @@ class BitcoinSigner {
     const scriptPubKey = this.createP2PKHScript(publicKeyHash);
 
     // Create signature hash
-    const sigHash = this.createSignatureHash(tx, inputIndex, scriptPubKey);
+    const sigHash = await this.createSignatureHash(tx, inputIndex, scriptPubKey);
 
     // Sign with ECDSA
     const signature = await this.signECDSA(privateKeyBytes, sigHash);
@@ -247,7 +247,7 @@ class BitcoinSigner {
   /**
    * Create signature hash for signing
    */
-  static createSignatureHash(tx, inputIndex, scriptPubKey) {
+  static async createSignatureHash(tx, inputIndex, scriptPubKey) {
     // Serialize transaction for signing
     let data = [];
 
@@ -297,7 +297,7 @@ class BitcoinSigner {
 
     // Double SHA256
     const bytes = new Uint8Array(data);
-    return this.doubleSha256(bytes);
+    return await this.doubleSha256(bytes);
   }
 
   /**
