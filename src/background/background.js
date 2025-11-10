@@ -1,0 +1,377 @@
+/**
+ * Background Service Worker (Manifest V3)
+ * Handles wallet state, signing requests, and message routing
+ */
+
+// Import libraries
+importScripts('../lib/encryption.js');
+importScripts('../lib/bitcoin-simple.js');
+
+// Wallet state (in-memory)
+let walletState = {
+  isUnlocked: false,
+  address: null,
+  encryptedPrivateKey: null, // Stored in chrome.storage.local
+  privateKey: null // Only in memory when unlocked
+};
+
+// Pending signing requests
+const pendingSignRequests = new Map();
+
+/**
+ * Initialize extension
+ */
+chrome.runtime.onInstalled.addListener(async () => {
+  console.log('Counterparty Signer installed');
+
+  // Load wallet from storage
+  const result = await chrome.storage.local.get(['encryptedPrivateKey', 'address']);
+  if (result.encryptedPrivateKey) {
+    walletState.encryptedPrivateKey = result.encryptedPrivateKey;
+    walletState.address = result.address;
+  }
+});
+
+/**
+ * Listen for messages from content script or popup
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Background received message:', message.type);
+
+  switch (message.type) {
+    case 'GET_WALLET_STATUS':
+      handleGetWalletStatus(sendResponse);
+      return true; // Keep channel open for async response
+
+    case 'CREATE_WALLET':
+      handleCreateWallet(message.data, sendResponse);
+      return true;
+
+    case 'IMPORT_WALLET':
+      handleImportWallet(message.data, sendResponse);
+      return true;
+
+    case 'UNLOCK_WALLET':
+      handleUnlockWallet(message.data, sendResponse);
+      return true;
+
+    case 'LOCK_WALLET':
+      handleLockWallet(sendResponse);
+      return true;
+
+    case 'SIGN_TRANSACTION':
+      handleSignTransactionRequest(message.data, sender, sendResponse);
+      return true;
+
+    case 'APPROVE_SIGNING':
+      handleApproveSign(message.data, sendResponse);
+      return true;
+
+    case 'REJECT_SIGNING':
+      handleRejectSign(message.data, sendResponse);
+      return true;
+
+    default:
+      sendResponse({ success: false, error: 'Unknown message type' });
+  }
+
+  return false;
+});
+
+/**
+ * Get wallet status
+ */
+async function handleGetWalletStatus(sendResponse) {
+  const hasWallet = !!walletState.encryptedPrivateKey;
+
+  sendResponse({
+    success: true,
+    data: {
+      hasWallet,
+      isUnlocked: walletState.isUnlocked,
+      address: walletState.address
+    }
+  });
+}
+
+/**
+ * Create new wallet
+ */
+async function handleCreateWallet(data, sendResponse) {
+  try {
+    const { password } = data;
+
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters');
+    }
+
+    // Generate new private key
+    const privateKeyHex = BitcoinSigner.generatePrivateKey();
+
+    // Derive address
+    const address = await BitcoinSigner.deriveAddress(privateKeyHex);
+
+    // Encrypt private key with password
+    const encryptedPrivateKey = await Encryption.encrypt(privateKeyHex, password);
+
+    // Store encrypted key and address
+    await chrome.storage.local.set({
+      encryptedPrivateKey,
+      address
+    });
+
+    // Update wallet state
+    walletState.encryptedPrivateKey = encryptedPrivateKey;
+    walletState.address = address;
+    walletState.privateKey = privateKeyHex;
+    walletState.isUnlocked = true;
+
+    sendResponse({
+      success: true,
+      data: { address }
+    });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Import existing wallet
+ */
+async function handleImportWallet(data, sendResponse) {
+  try {
+    const { privateKey, password } = data;
+
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters');
+    }
+
+    if (!privateKey || privateKey.length !== 64) {
+      throw new Error('Invalid private key format (must be 64 hex characters)');
+    }
+
+    // Derive address from private key
+    const address = await BitcoinSigner.deriveAddress(privateKey);
+
+    // Encrypt private key with password
+    const encryptedPrivateKey = await Encryption.encrypt(privateKey, password);
+
+    // Store encrypted key and address
+    await chrome.storage.local.set({
+      encryptedPrivateKey,
+      address
+    });
+
+    // Update wallet state
+    walletState.encryptedPrivateKey = encryptedPrivateKey;
+    walletState.address = address;
+    walletState.privateKey = privateKey;
+    walletState.isUnlocked = true;
+
+    sendResponse({
+      success: true,
+      data: { address }
+    });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Unlock wallet with password
+ */
+async function handleUnlockWallet(data, sendResponse) {
+  try {
+    const { password } = data;
+
+    if (!walletState.encryptedPrivateKey) {
+      throw new Error('No wallet found');
+    }
+
+    // Decrypt private key
+    const privateKey = await Encryption.decrypt(
+      walletState.encryptedPrivateKey,
+      password
+    );
+
+    // Update state
+    walletState.privateKey = privateKey;
+    walletState.isUnlocked = true;
+
+    sendResponse({
+      success: true,
+      data: { address: walletState.address }
+    });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: 'Incorrect password or corrupted data'
+    });
+  }
+}
+
+/**
+ * Lock wallet (clear private key from memory)
+ */
+function handleLockWallet(sendResponse) {
+  walletState.privateKey = null;
+  walletState.isUnlocked = false;
+
+  sendResponse({ success: true });
+}
+
+/**
+ * Handle signing request from web page
+ */
+async function handleSignTransactionRequest(data, sender, sendResponse) {
+  try {
+    const { unsignedTx, details, requestId } = data;
+
+    if (!walletState.isUnlocked) {
+      throw new Error('Wallet is locked. Please unlock it first.');
+    }
+
+    // Store request
+    pendingSignRequests.set(requestId, {
+      unsignedTx,
+      details,
+      sender,
+      resolve: null,
+      reject: null
+    });
+
+    // Create promise to wait for user approval
+    const signaturePromise = new Promise((resolve, reject) => {
+      const request = pendingSignRequests.get(requestId);
+      request.resolve = resolve;
+      request.reject = reject;
+      pendingSignRequests.set(requestId, request);
+    });
+
+    // Open signing window
+    const windowUrl = chrome.runtime.getURL('signing.html') + `?requestId=${requestId}`;
+
+    chrome.windows.create({
+      url: windowUrl,
+      type: 'popup',
+      width: 400,
+      height: 600,
+      focused: true
+    });
+
+    // Wait for user approval
+    const signedTx = await signaturePromise;
+
+    sendResponse({
+      success: true,
+      data: { signedTx }
+    });
+
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * User approved signing
+ */
+async function handleApproveSign(data, sendResponse) {
+  try {
+    const { requestId } = data;
+    const request = pendingSignRequests.get(requestId);
+
+    if (!request) {
+      throw new Error('Request not found');
+    }
+
+    // Sign transaction using backend API (MVP approach)
+    // In production, this would use bitcoinjs-lib locally
+    const signedTx = await signTransactionViaBackend(request.unsignedTx);
+
+    // Resolve the promise
+    request.resolve(signedTx);
+
+    // Clean up
+    pendingSignRequests.delete(requestId);
+
+    sendResponse({ success: true });
+  } catch (error) {
+    const request = pendingSignRequests.get(data.requestId);
+    if (request) {
+      request.reject(error);
+      pendingSignRequests.delete(data.requestId);
+    }
+
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * User rejected signing
+ */
+function handleRejectSign(data, sendResponse) {
+  const { requestId } = data;
+  const request = pendingSignRequests.get(requestId);
+
+  if (request) {
+    request.reject(new Error('User rejected transaction'));
+    pendingSignRequests.delete(requestId);
+  }
+
+  sendResponse({ success: true });
+}
+
+/**
+ * Sign transaction via backend API (MVP)
+ * TODO: Replace with local signing using bitcoinjs-lib
+ */
+async function signTransactionViaBackend(unsignedTx) {
+  const response = await fetch('http://localhost:3000/api/nft/sign-raw-tx', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unsignedTx })
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to sign transaction');
+  }
+
+  const result = await response.json();
+  return result.data.signedTx;
+}
+
+/**
+ * Get pending sign request by ID
+ */
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'signing-window') {
+    port.onMessage.addListener((message) => {
+      if (message.type === 'GET_SIGN_REQUEST') {
+        const request = pendingSignRequests.get(message.requestId);
+        if (request) {
+          port.postMessage({
+            type: 'SIGN_REQUEST_DATA',
+            data: {
+              unsignedTx: request.unsignedTx,
+              details: request.details
+            }
+          });
+        }
+      }
+    });
+  }
+});
+
+console.log('Counterparty Signer background service worker loaded');

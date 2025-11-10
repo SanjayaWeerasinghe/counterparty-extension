@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Counterparty Signer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 350px;
+      min-height: 400px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.primary {
+      background: #fff;
+      color: #667eea;
+    }
+
+    button.primary:hover {
+      background: #f0f0f0;
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      margin-top: 10px;
+    }
+
+    .address-display {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 12px;
+      word-break: break-all;
+      margin-bottom: 15px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 15px;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      margin-right: 8px;
+      display: inline-block;
+    }
+
+    .status-indicator.locked {
+      background: #f87171;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tab.active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 15px;
+    }
+
+    .success {
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-bottom: 15px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .link {
+      color: #fff;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 10px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 Counterparty Signer</h1>
+      <p>Secure Bitcoin Wallet</p>
+    </div>
+
+    <!-- Setup View (no wallet) -->
+    <div id="setupView" class="view">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active" onclick="showSetupTab('create')">Create</button>
+          <button class="tab" onclick="showSetupTab('import')">Import</button>
+        </div>
+
+        <!-- Create Wallet -->
+        <div id="createTab" class="tab-content">
+          <div id="createError" class="error hidden"></div>
+          <div id="createSuccess" class="success hidden"></div>
+
+          <div class="form-group">
+            <label>Password (min 8 characters)</label>
+            <input type="password" id="createPassword" placeholder="Enter secure password">
+          </div>
+
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="createPasswordConfirm" placeholder="Confirm password">
+          </div>
+
+          <button class="primary" onclick="createWallet()">Create Wallet</button>
+        </div>
+
+        <!-- Import Wallet -->
+        <div id="importTab" class="tab-content hidden">
+          <div id="importError" class="error hidden"></div>
+          <div id="importSuccess" class="success hidden"></div>
+
+          <div class="form-group">
+            <label>Private Key (64 hex chars)</label>
+            <textarea id="importPrivateKey" placeholder="Enter your private key (64 character hex string)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Password (min 8 characters)</label>
+            <input type="password" id="importPassword" placeholder="Enter secure password">
+          </div>
+
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="importPasswordConfirm" placeholder="Confirm password">
+          </div>
+
+          <button class="primary" onclick="importWallet()">Import Wallet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Locked View (wallet exists but locked) -->
+    <div id="lockedView" class="view">
+      <div class="card">
+        <div class="status">
+          <span>
+            <span class="status-indicator locked"></span>
+            Wallet Locked
+          </span>
+        </div>
+
+        <div id="unlockError" class="error hidden"></div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="unlockPassword" placeholder="Enter password">
+        </div>
+
+        <button class="primary" onclick="unlockWallet()">Unlock</button>
+      </div>
+    </div>
+
+    <!-- Unlocked View (wallet unlocked) -->
+    <div id="unlockedView" class="view">
+      <div class="card">
+        <div class="status">
+          <span>
+            <span class="status-indicator"></span>
+            Wallet Unlocked
+          </span>
+          <button class="secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="lockWallet()">Lock</button>
+        </div>
+
+        <div class="form-group">
+          <label>Your Address</label>
+          <div class="address-display" id="walletAddress">Loading...</div>
+        </div>
+
+        <button onclick="copyAddress()">Copy Address</button>
+        <button class="secondary" onclick="viewPrivateKey()">View Private Key</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Icons</title>
+</head>
+<body>
+  <h3>Right-click each canvas and "Save image as..."</h3>
+  <div>
+    <p>icon-16.png</p>
+    <canvas id="icon16" width="16" height="16"></canvas>
+  </div>
+  <div>
+    <p>icon-48.png</p>
+    <canvas id="icon48" width="48" height="48"></canvas>
+  </div>
+  <div>
+    <p>icon-128.png</p>
+    <canvas id="icon128" width="128" height="128"></canvas>
+  </div>
+
+  <script>
+    function drawIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+
+      // Draw circle
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw lock icon
+      ctx.fillStyle = '#fff';
+      const lockSize = size * 0.5;
+      const lockX = (size - lockSize) / 2;
+      const lockY = (size - lockSize) / 2;
+
+      // Lock body
+      ctx.fillRect(lockX, lockY + lockSize * 0.4, lockSize, lockSize * 0.6);
+
+      // Lock shackle
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = size * 0.08;
+      ctx.beginPath();
+      ctx.arc(size/2, lockY + lockSize * 0.25, lockSize * 0.25, Math.PI, 0, false);
+      ctx.stroke();
+    }
+
+    drawIcon('icon16', 16);
+    drawIcon('icon48', 48);
+    drawIcon('icon128', 128);
+  </script>
+</body>
+</html>
