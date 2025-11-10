@@ -190,14 +190,58 @@ class BitcoinSigner {
 
   /**
    * Sign data with ECDSA using secp256k1
+   * Returns DER-encoded signature
    */
   static async signECDSA(privateKeyBytes, messageHash) {
-    if (typeof nobleSecp256k1 !== 'undefined') {
-      const signature = await nobleSecp256k1.sign(messageHash, privateKeyBytes);
-      return new Uint8Array(signature);
+    if (typeof nobleSecp256k1 === 'undefined') {
+      throw new Error('noble-secp256k1 library not loaded');
     }
 
-    throw new Error('noble-secp256k1 library not loaded');
+    // Sign and get signature (returns {r, s} or compact format depending on version)
+    const sig = await nobleSecp256k1.sign(messageHash, privateKeyBytes, {
+      canonical: true,  // Ensure low-S value
+      der: false  // We'll do DER encoding ourselves
+    });
+
+    // Extract r and s values
+    let r, s;
+    if (sig.r !== undefined && sig.s !== undefined) {
+      // Object format
+      r = sig.r;
+      s = sig.s;
+    } else {
+      // Compact format (64 bytes: r||s)
+      const sigBytes = new Uint8Array(sig);
+      r = BigInt('0x' + this.bytesToHex(sigBytes.slice(0, 32)));
+      s = BigInt('0x' + this.bytesToHex(sigBytes.slice(32, 64)));
+    }
+
+    // Encode as DER
+    return this.encodeDER(r, s);
+  }
+
+  /**
+   * Encode ECDSA signature in DER format
+   */
+  static encodeDER(r, s) {
+    const encodeInteger = (value) => {
+      let hex = value.toString(16);
+      if (hex.length % 2) hex = '0' + hex;
+
+      const bytes = this.hexToBytes(hex);
+
+      // Add 0x00 prefix if high bit is set (to indicate positive number)
+      const needsPadding = bytes[0] & 0x80;
+      const intBytes = needsPadding ? new Uint8Array([0x00, ...bytes]) : bytes;
+
+      return new Uint8Array([0x02, intBytes.length, ...intBytes]);
+    };
+
+    const rEncoded = encodeInteger(r);
+    const sEncoded = encodeInteger(s);
+    const totalLength = rEncoded.length + sEncoded.length;
+
+    return new Uint8Array([0x30, totalLength, ...rEncoded, ...sEncoded]);
   }
 
   /**

@@ -6,17 +6,16 @@
 // Import libraries
 importScripts('../lib/encryption.js');
 
-// Import noble crypto libraries for Bitcoin signing (pure JS, audited, minimal)
+// Import noble crypto libraries for Bitcoin signing (bundled locally)
 try {
-  importScripts('https://cdn.jsdelivr.net/npm/@noble/secp256k1@1.7.1/index.js');
+  importScripts('../lib/noble/secp256k1.js');
   console.log('[Background] noble-secp256k1 loaded successfully');
 } catch (error) {
   console.error('[Background] Failed to load noble-secp256k1:', error);
 }
 
 try {
-  importScripts('https://cdn.jsdelivr.net/npm/@noble/hashes@1.3.0/sha256.js');
-  importScripts('https://cdn.jsdelivr.net/npm/@noble/hashes@1.3.0/ripemd160.js');
+  importScripts('../lib/noble/hashes.js');
   console.log('[Background] noble-hashes loaded successfully');
 } catch (error) {
   console.error('[Background] Failed to load noble-hashes:', error);
