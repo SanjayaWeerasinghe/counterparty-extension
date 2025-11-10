@@ -152,16 +152,22 @@ class BitcoinSigner {
   static async signInput(tx, inputIndex, privateKeyHex, privateKeyBytes) {
     // Get public key from private key
     const publicKey = await this.getPublicKey(privateKeyBytes);
+    console.log('[signInput] Public key:', this.bytesToHex(publicKey));
 
     // Create P2PKH scriptPubKey
     const publicKeyHash = await this.hash160(publicKey);
+    console.log('[signInput] Public key hash:', this.bytesToHex(publicKeyHash));
+
     const scriptPubKey = this.createP2PKHScript(publicKeyHash);
+    console.log('[signInput] scriptPubKey:', this.bytesToHex(scriptPubKey));
 
     // Create signature hash
     const sigHash = await this.createSignatureHash(tx, inputIndex, scriptPubKey);
+    console.log('[signInput] Signature hash (sighash):', this.bytesToHex(sigHash));
 
     // Sign with ECDSA
     const signature = await this.signECDSA(privateKeyBytes, sigHash);
+    console.log('[signInput] DER signature:', this.bytesToHex(signature));
 
     // Add SIGHASH_ALL flag (0x01)
     const signatureWithHashType = new Uint8Array([...signature, 0x01]);
