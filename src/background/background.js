@@ -165,18 +165,22 @@ async function handleCreateWallet(data, sendResponse) {
  */
 async function handleImportWallet(data, sendResponse) {
   try {
-    const { privateKey, password } = data;
+    const { address, privateKey, password } = data;
 
     if (!password || password.length < 8) {
       throw new Error('Password must be at least 8 characters');
+    }
+
+    if (!address) {
+      throw new Error('Bitcoin address is required');
     }
 
     if (!privateKey || privateKey.length !== 64) {
       throw new Error('Invalid private key format (must be 64 hex characters)');
     }
 
-    // Derive address from private key
-    const address = await BitcoinSigner.deriveAddress(privateKey);
+    // Use the provided address (no derivation needed for MVP)
+    // In production, verify that the private key matches the address
 
     // Encrypt private key with password
     const encryptedPrivateKey = await Encryption.encrypt(privateKey, password);

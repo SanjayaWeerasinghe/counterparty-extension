@@ -165,11 +165,17 @@ async function createWallet() {
 async function importWallet() {
   hideMessages('import');
 
-  const privateKey = document.getElementById('importPrivateKey').value.trim();
-  const password = document.getElementById('importPassword').value;
-  const passwordConfirm = document.getElementById('importPasswordConfirm').value;
+  const address = document.getElementById('importAddress')?.value.trim();
+  const privateKey = document.getElementById('importPrivateKey')?.value.trim();
+  const password = document.getElementById('importPassword')?.value;
+  const passwordConfirm = document.getElementById('importPasswordConfirm')?.value;
 
   // Validation
+  if (!address) {
+    showError('import', 'Bitcoin address is required');
+    return;
+  }
+
   if (!privateKey || privateKey.length !== 64) {
     showError('import', 'Private key must be 64 hex characters');
     return;
@@ -193,7 +199,7 @@ async function importWallet() {
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'IMPORT_WALLET',
-      data: { privateKey, password }
+      data: { address, privateKey, password }
     });
 
     if (response.success) {
