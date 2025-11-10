@@ -6,16 +6,16 @@
 // Import libraries
 importScripts('../lib/encryption.js');
 
-// Import noble crypto libraries for Bitcoin signing (bundled locally)
+// Import noble crypto libraries for Bitcoin signing (service worker compatible wrapper)
 try {
-  importScripts('../lib/noble/secp256k1.js');
-  console.log('[Background] noble-secp256k1 loaded successfully');
+  importScripts('../lib/noble/secp256k1-wrapper.js');
+  console.log('[Background] noble-secp256k1 loaded successfully via wrapper');
+  console.log('[Background] Available:', typeof nobleSecp256k1 !== 'undefined' ? 'YES' : 'NO');
 } catch (error) {
   console.error('[Background] Failed to load noble-secp256k1:', error);
 }
 
-// Note: noble-hashes uses ES modules which don't work with importScripts
-// We'll use Web Crypto API for SHA256 and implement RIPEMD160 separately
+// Note: Using Web Crypto API for SHA256 and custom RIPEMD160 implementation
 console.log('[Background] Using Web Crypto API for hashing');
 
 // Import Bitcoin signing library (our custom implementation)
