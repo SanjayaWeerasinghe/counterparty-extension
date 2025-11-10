@@ -370,16 +370,15 @@ function handleRejectSign(data, sendResponse) {
 async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Using LOCAL signing in extension (no backend key exposure)');
 
-  // Get wallet data from storage
-  const walletData = await chrome.storage.local.get(['wallet']);
-
-  if (!walletData.wallet || !walletData.wallet.privateKeyWif) {
-    throw new Error('No wallet found. Please import or create a wallet first.');
+  // Check if wallet is unlocked in memory
+  if (!walletState.isUnlocked || !walletState.privateKey) {
+    throw new Error('Wallet is locked. Please unlock first.');
   }
 
-  const privateKeyWif = walletData.wallet.privateKeyWif;
+  const privateKeyHex = walletState.privateKey;
+  const address = walletState.address;
 
-  console.log('[Signing] Wallet address:', walletData.wallet.address);
+  console.log('[Signing] Wallet address:', address);
   console.log('[Signing] Unsigned TX length:', unsignedTx.length);
 
   try {
@@ -391,8 +390,11 @@ async function signTransactionLocally(unsignedTx) {
 
     const bitcoin = window.bitcoin;
 
-    // Decode WIF private key
-    const keyPair = bitcoin.ECPair.fromWIF(privateKeyWif);
+    // Convert hex private key to Buffer and create keypair
+    const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
+    const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
+
+    console.log('[Signing] Created keypair from private key');
 
     // Parse unsigned transaction
     const tx = bitcoin.Transaction.fromHex(unsignedTx);
