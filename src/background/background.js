@@ -19,17 +19,35 @@ let walletState = {
 const pendingSignRequests = new Map();
 
 /**
- * Initialize extension
+ * Load wallet state from storage
+ */
+async function loadWalletFromStorage() {
+  try {
+    const result = await chrome.storage.local.get(['encryptedPrivateKey', 'address']);
+    if (result.encryptedPrivateKey) {
+      walletState.encryptedPrivateKey = result.encryptedPrivateKey;
+      walletState.address = result.address;
+      console.log('Wallet loaded from storage');
+    }
+  } catch (error) {
+    console.error('Failed to load wallet from storage:', error);
+  }
+}
+
+/**
+ * Initialize extension on install
  */
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('Counterparty Signer installed');
+  await loadWalletFromStorage();
+});
 
-  // Load wallet from storage
-  const result = await chrome.storage.local.get(['encryptedPrivateKey', 'address']);
-  if (result.encryptedPrivateKey) {
-    walletState.encryptedPrivateKey = result.encryptedPrivateKey;
-    walletState.address = result.address;
-  }
+/**
+ * Load wallet on browser startup
+ */
+chrome.runtime.onStartup.addListener(async () => {
+  console.log('Counterparty Signer starting up');
+  await loadWalletFromStorage();
 });
 
 /**
@@ -115,10 +133,14 @@ async function handleCreateWallet(data, sendResponse) {
     const encryptedPrivateKey = await Encryption.encrypt(privateKeyHex, password);
 
     // Store encrypted key and address
-    await chrome.storage.local.set({
-      encryptedPrivateKey,
-      address
-    });
+    try {
+      await chrome.storage.local.set({
+        encryptedPrivateKey,
+        address
+      });
+    } catch (storageError) {
+      throw new Error('Failed to save wallet to storage: ' + storageError.message);
+    }
 
     // Update wallet state
     walletState.encryptedPrivateKey = encryptedPrivateKey;
@@ -160,10 +182,14 @@ async function handleImportWallet(data, sendResponse) {
     const encryptedPrivateKey = await Encryption.encrypt(privateKey, password);
 
     // Store encrypted key and address
-    await chrome.storage.local.set({
-      encryptedPrivateKey,
-      address
-    });
+    try {
+      await chrome.storage.local.set({
+        encryptedPrivateKey,
+        address
+      });
+    } catch (storageError) {
+      throw new Error('Failed to save wallet to storage: ' + storageError.message);
+    }
 
     // Update wallet state
     walletState.encryptedPrivateKey = encryptedPrivateKey;

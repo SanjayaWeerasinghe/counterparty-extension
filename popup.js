@@ -220,13 +220,13 @@ async function lockWallet() {
 /**
  * Copy address to clipboard
  */
-async function copyAddress() {
+async function copyAddress(event) {
   if (walletStatus?.address) {
     try {
       await navigator.clipboard.writeText(walletStatus.address);
 
       // Show feedback
-      const btn = event.target;
+      const btn = event?.target || document.activeElement;
       const originalText = btn.textContent;
       btn.textContent = '✓ Copied!';
       btn.style.background = 'rgba(34, 197, 94, 0.3)';
