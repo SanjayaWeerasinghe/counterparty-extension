@@ -325,7 +325,7 @@ async function handleApproveSign(data, sendResponse) {
 
     // Sign transaction using backend API (MVP approach)
     // In production, this would use bitcoinjs-lib locally
-    const signedTx = await signTransactionViaBackend(request.unsignedTx);
+    const signedTx = await signTransactionLocally(request.unsignedTx);
 
     // Resolve the promise
     request.resolve(signedTx);
@@ -364,38 +364,101 @@ function handleRejectSign(data, sendResponse) {
 }
 
 /**
- * Sign transaction via backend API (MVP)
- * TODO: Replace with local signing using bitcoinjs-lib
+ * Sign transaction locally in the extension (TRUE EXTERNAL SIGNING)
+ * Uses bitcoinjs-lib loaded from CDN to sign without sending keys to backend
  */
-async function signTransactionViaBackend(unsignedTx) {
-  // Try multiple possible backend URLs
-  const backendUrls = [
-    'http://5.189.162.95:3000/api/nft/sign-raw-tx',
-    'http://localhost:3000/api/nft/sign-raw-tx'
-  ];
+async function signTransactionLocally(unsignedTx) {
+  console.log('[Signing] Using LOCAL signing in extension (no backend key exposure)');
 
-  let lastError;
-  for (const url of backendUrls) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ unsignedTx })
-      });
+  // Get wallet data from storage
+  const walletData = await chrome.storage.local.get(['wallet']);
 
-      if (!response.ok) {
-        throw new Error('Failed to sign transaction');
-      }
-
-      const result = await response.json();
-      return result.data.signedTx;
-    } catch (error) {
-      lastError = error;
-      continue; // Try next URL
-    }
+  if (!walletData.wallet || !walletData.wallet.privateKeyWif) {
+    throw new Error('No wallet found. Please import or create a wallet first.');
   }
 
-  throw new Error('Failed to sign transaction: ' + lastError.message);
+  const privateKeyWif = walletData.wallet.privateKeyWif;
+
+  console.log('[Signing] Wallet address:', walletData.wallet.address);
+  console.log('[Signing] Unsigned TX length:', unsignedTx.length);
+
+  try {
+    // Import bitcoinjs-lib dynamically
+    if (typeof window.bitcoin === 'undefined') {
+      // Load bitcoinjs-lib from CDN if not already loaded
+      await loadBitcoinJsLib();
+    }
+
+    const bitcoin = window.bitcoin;
+
+    // Decode WIF private key
+    const keyPair = bitcoin.ECPair.fromWIF(privateKeyWif);
+
+    // Parse unsigned transaction
+    const tx = bitcoin.Transaction.fromHex(unsignedTx);
+
+    console.log('[Signing] Transaction has', tx.ins.length, 'inputs');
+
+    // Sign each input
+    for (let i = 0; i < tx.ins.length; i++) {
+      const input = tx.ins[i];
+
+      // Get the previous output script (P2PKH for standard addresses)
+      const p2pkh = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
+
+      // Create signature hash
+      const signatureHash = tx.hashForSignature(
+        i,
+        p2pkh.output,
+        bitcoin.Transaction.SIGHASH_ALL
+      );
+
+      // Sign
+      const signature = keyPair.sign(signatureHash);
+
+      // Create signature with SIGHASH_ALL flag
+      const signatureWithHashType = Buffer.concat([
+        signature,
+        Buffer.from([bitcoin.Transaction.SIGHASH_ALL])
+      ]);
+
+      // Build scriptSig: <signature> <pubkey>
+      const scriptSig = bitcoin.script.compile([
+        signatureWithHashType,
+        keyPair.publicKey
+      ]);
+
+      // Set the scriptSig
+      tx.setInputScript(i, scriptSig);
+    }
+
+    const signedTx = tx.toHex();
+
+    console.log('[Signing] Transaction signed successfully (LOCAL)');
+    console.log('[Signing] Signed TX length:', signedTx.length);
+    console.log('[Signing] ✅ Private key NEVER left the extension!');
+
+    return signedTx;
+  } catch (error) {
+    console.error('[Signing] Local signing error:', error);
+    throw new Error(`Failed to sign transaction locally: ${error.message}`);
+  }
+}
+
+/**
+ * Load bitcoinjs-lib from CDN
+ */
+async function loadBitcoinJsLib() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js';
+    script.onload = () => {
+      console.log('[Signing] bitcoinjs-lib loaded successfully');
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Failed to load bitcoinjs-lib'));
+    document.head.appendChild(script);
+  });
 }
 
 /**
