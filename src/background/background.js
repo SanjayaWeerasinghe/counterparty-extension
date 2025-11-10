@@ -364,18 +364,34 @@ function handleRejectSign(data, sendResponse) {
  * TODO: Replace with local signing using bitcoinjs-lib
  */
 async function signTransactionViaBackend(unsignedTx) {
-  const response = await fetch('http://localhost:3000/api/nft/sign-raw-tx', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ unsignedTx })
-  });
+  // Try multiple possible backend URLs
+  const backendUrls = [
+    'http://5.189.162.95:3000/api/nft/sign-raw-tx',
+    'http://localhost:3000/api/nft/sign-raw-tx'
+  ];
 
-  if (!response.ok) {
-    throw new Error('Failed to sign transaction');
+  let lastError;
+  for (const url of backendUrls) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unsignedTx })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to sign transaction');
+      }
+
+      const result = await response.json();
+      return result.data.signedTx;
+    } catch (error) {
+      lastError = error;
+      continue; // Try next URL
+    }
   }
 
-  const result = await response.json();
-  return result.data.signedTx;
+  throw new Error('Failed to sign transaction: ' + lastError.message);
 }
 
 /**
