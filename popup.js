@@ -68,7 +68,14 @@ function showView(viewId) {
 function showSetupTab(tab) {
   // Update tab buttons
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+
+  // Find and activate the correct tab button
+  const tabs = document.querySelectorAll('.tab');
+  if (tab === 'create') {
+    tabs[0]?.classList.add('active');
+  } else {
+    tabs[1]?.classList.add('active');
+  }
 
   // Show/hide tabs
   if (tab === 'create') {
