@@ -13,6 +13,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('[Popup] Initializing...');
   await loadWalletStatus();
 
+  // Tab switching
+  document.getElementById('createTabBtn')?.addEventListener('click', () => showSetupTab('create'));
+  document.getElementById('importTabBtn')?.addEventListener('click', () => showSetupTab('import'));
+
+  // Wallet actions
+  document.getElementById('createWalletBtn')?.addEventListener('click', createWallet);
+  document.getElementById('importWalletBtn')?.addEventListener('click', importWallet);
+  document.getElementById('unlockWalletBtn')?.addEventListener('click', unlockWallet);
+  document.getElementById('lockWalletBtn')?.addEventListener('click', lockWallet);
+  document.getElementById('copyAddressBtn')?.addEventListener('click', copyAddress);
+  document.getElementById('viewPrivateKeyBtn')?.addEventListener('click', viewPrivateKey);
+
   // Add enter key handlers
   document.getElementById('createPasswordConfirm')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') createWallet();
@@ -241,13 +253,13 @@ async function lockWallet() {
 /**
  * Copy address to clipboard
  */
-async function copyAddress(event) {
+async function copyAddress() {
   if (walletStatus?.address) {
     try {
       await navigator.clipboard.writeText(walletStatus.address);
 
       // Show feedback
-      const btn = event?.target || document.activeElement;
+      const btn = document.getElementById('copyAddressBtn');
       const originalText = btn.textContent;
       btn.textContent = '✓ Copied!';
       btn.style.background = 'rgba(34, 197, 94, 0.3)';

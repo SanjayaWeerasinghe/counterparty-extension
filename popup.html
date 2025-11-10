@@ -238,8 +238,8 @@
     <div id="setupView" class="view">
       <div class="card">
         <div class="tabs">
-          <button class="tab active" onclick="showSetupTab('create')">Create</button>
-          <button class="tab" onclick="showSetupTab('import')">Import</button>
+          <button class="tab active" id="createTabBtn">Create</button>
+          <button class="tab" id="importTabBtn">Import</button>
         </div>
 
         <!-- Create Wallet -->
@@ -257,7 +257,7 @@
             <input type="password" id="createPasswordConfirm" placeholder="Confirm password">
           </div>
 
-          <button class="primary" onclick="createWallet()">Create Wallet</button>
+          <button class="primary" id="createWalletBtn">Create Wallet</button>
         </div>
 
         <!-- Import Wallet -->
@@ -280,7 +280,7 @@
             <input type="password" id="importPasswordConfirm" placeholder="Confirm password">
           </div>
 
-          <button class="primary" onclick="importWallet()">Import Wallet</button>
+          <button class="primary" id="importWalletBtn">Import Wallet</button>
         </div>
       </div>
     </div>
@@ -302,7 +302,7 @@
           <input type="password" id="unlockPassword" placeholder="Enter password">
         </div>
 
-        <button class="primary" onclick="unlockWallet()">Unlock</button>
+        <button class="primary" id="unlockWalletBtn">Unlock</button>
       </div>
     </div>
 
@@ -314,7 +314,7 @@
             <span class="status-indicator"></span>
             Wallet Unlocked
           </span>
-          <button class="secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" onclick="lockWallet()">Lock</button>
+          <button class="secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" id="lockWalletBtn">Lock</button>
         </div>
 
         <div class="form-group">
@@ -322,8 +322,8 @@
           <div class="address-display" id="walletAddress">Loading...</div>
         </div>
 
-        <button onclick="copyAddress()">Copy Address</button>
-        <button class="secondary" onclick="viewPrivateKey()">View Private Key</button>
+        <button id="copyAddressBtn">Copy Address</button>
+        <button class="secondary" id="viewPrivateKeyBtn">View Private Key</button>
       </div>
     </div>
   </div>
