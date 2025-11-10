@@ -14,12 +14,9 @@ try {
   console.error('[Background] Failed to load noble-secp256k1:', error);
 }
 
-try {
-  importScripts('../lib/noble/hashes.js');
-  console.log('[Background] noble-hashes loaded successfully');
-} catch (error) {
-  console.error('[Background] Failed to load noble-hashes:', error);
-}
+// Note: noble-hashes uses ES modules which don't work with importScripts
+// We'll use Web Crypto API for SHA256 and implement RIPEMD160 separately
+console.log('[Background] Using Web Crypto API for hashing');
 
 // Import Bitcoin signing library (our custom implementation)
 importScripts('../lib/bitcoin-simple.js');
