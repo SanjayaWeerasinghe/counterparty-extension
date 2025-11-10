@@ -236,7 +236,7 @@
   <!-- Error State -->
   <div id="errorState" class="hidden">
     <div class="error-message" id="errorMessage"></div>
-    <button class="reject" onclick="window.close()">Close</button>
+    <button class="reject" id="closeBtn">Close</button>
   </div>
 
   <!-- Transaction Details -->
@@ -265,8 +265,8 @@
     </div>
 
     <div class="buttons">
-      <button class="reject" onclick="rejectTransaction()" id="rejectBtn">Reject</button>
-      <button class="approve" onclick="approveTransaction()" id="approveBtn">Approve & Sign</button>
+      <button class="reject" id="rejectBtn">Reject</button>
+      <button class="approve" id="approveBtn">Approve & Sign</button>
     </div>
   </div>
 

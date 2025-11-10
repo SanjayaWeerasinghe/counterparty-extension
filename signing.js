@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       showError('Failed to load transaction data - request may have expired');
     }
   }, 10000);
+
+  // Add event listeners for buttons
+  document.getElementById('approveBtn')?.addEventListener('click', approveTransaction);
+  document.getElementById('rejectBtn')?.addEventListener('click', rejectTransaction);
+  document.getElementById('closeBtn')?.addEventListener('click', () => window.close());
 });
 
 /**
