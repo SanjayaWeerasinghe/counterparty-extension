@@ -176,13 +176,14 @@ async function importWallet() {
     return;
   }
 
-  if (!privateKey || privateKey.length !== 64) {
-    showError('import', 'Private key must be 64 hex characters');
+  // Validate WIF format (starts with K or L for mainnet compressed)
+  if (!privateKey || (privateKey.length !== 51 && privateKey.length !== 52)) {
+    showError('import', 'Invalid private key length (WIF should be 51-52 characters)');
     return;
   }
 
-  if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
-    showError('import', 'Invalid private key format (must be hex)');
+  if (!/^[KL]/.test(privateKey)) {
+    showError('import', 'Private key should start with K or L (compressed WIF format)');
     return;
   }
 

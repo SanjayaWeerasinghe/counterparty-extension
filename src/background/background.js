@@ -175,17 +175,18 @@ async function handleImportWallet(data, sendResponse) {
       throw new Error('Bitcoin address is required');
     }
 
-    if (!privateKey || privateKey.length !== 64) {
-      throw new Error('Invalid private key format (must be 64 hex characters)');
+    // Validate WIF format (privateKey is now WIF, not hex)
+    if (!privateKey || (privateKey.length !== 51 && privateKey.length !== 52)) {
+      throw new Error('Invalid WIF private key format');
     }
 
     // Use the provided address (no derivation needed for MVP)
     // In production, verify that the private key matches the address
 
-    // Encrypt private key with password
+    // Encrypt WIF private key with password
     const encryptedPrivateKey = await Encryption.encrypt(privateKey, password);
 
-    // Store encrypted key and address
+    // Store encrypted WIF key and address
     try {
       await chrome.storage.local.set({
         encryptedPrivateKey,
@@ -195,10 +196,10 @@ async function handleImportWallet(data, sendResponse) {
       throw new Error('Failed to save wallet to storage: ' + storageError.message);
     }
 
-    // Update wallet state
+    // Update wallet state (privateKey is now WIF)
     walletState.encryptedPrivateKey = encryptedPrivateKey;
     walletState.address = address;
-    walletState.privateKey = privateKey;
+    walletState.privateKeyWif = privateKey;  // Store as WIF
     walletState.isUnlocked = true;
 
     sendResponse({
@@ -365,36 +366,34 @@ function handleRejectSign(data, sendResponse) {
 
 /**
  * Sign transaction locally in the extension (TRUE EXTERNAL SIGNING)
- * Uses bitcoinjs-lib loaded from CDN to sign without sending keys to backend
+ * Uses bitcoinjs-lib loaded via importScripts to sign without sending keys to backend
  */
 async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Using LOCAL signing in extension (no backend key exposure)');
 
   // Check if wallet is unlocked in memory
-  if (!walletState.isUnlocked || !walletState.privateKey) {
+  if (!walletState.isUnlocked || !walletState.privateKeyWif) {
     throw new Error('Wallet is locked. Please unlock first.');
   }
 
-  const privateKeyHex = walletState.privateKey;
+  const privateKeyWif = walletState.privateKeyWif;
   const address = walletState.address;
 
   console.log('[Signing] Wallet address:', address);
   console.log('[Signing] Unsigned TX length:', unsignedTx.length);
 
   try {
-    // Import bitcoinjs-lib dynamically
-    if (typeof window.bitcoin === 'undefined') {
-      // Load bitcoinjs-lib from CDN if not already loaded
+    // Load bitcoinjs-lib if not already loaded
+    if (typeof self.bitcoin === 'undefined') {
       await loadBitcoinJsLib();
     }
 
-    const bitcoin = window.bitcoin;
+    const bitcoin = self.bitcoin;
 
-    // Convert hex private key to Buffer and create keypair
-    const privateKeyBuffer = Buffer.from(privateKeyHex, 'hex');
-    const keyPair = bitcoin.ECPair.fromPrivateKey(privateKeyBuffer);
+    // Create keypair from WIF
+    const keyPair = bitcoin.ECPair.fromWIF(privateKeyWif);
 
-    console.log('[Signing] Created keypair from private key');
+    console.log('[Signing] Created keypair from WIF private key');
 
     // Parse unsigned transaction
     const tx = bitcoin.Transaction.fromHex(unsignedTx);
@@ -448,18 +447,19 @@ async function signTransactionLocally(unsignedTx) {
 }
 
 /**
- * Load bitcoinjs-lib from CDN
+ * Load bitcoinjs-lib from CDN using importScripts (for service worker)
  */
 async function loadBitcoinJsLib() {
   return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js';
-    script.onload = () => {
+    try {
+      console.log('[Signing] Loading bitcoinjs-lib via importScripts...');
+      importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js');
       console.log('[Signing] bitcoinjs-lib loaded successfully');
       resolve();
-    };
-    script.onerror = () => reject(new Error('Failed to load bitcoinjs-lib'));
-    document.head.appendChild(script);
+    } catch (error) {
+      console.error('[Signing] Failed to load bitcoinjs-lib:', error);
+      reject(new Error('Failed to load bitcoinjs-lib: ' + error.message));
+    }
   });
 }
 
