@@ -7,6 +7,14 @@
 importScripts('../lib/encryption.js');
 importScripts('../lib/bitcoin-simple.js');
 
+// Import bitcoinjs-lib from CDN for transaction signing
+try {
+  importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js');
+  console.log('[Background] bitcoinjs-lib loaded successfully');
+} catch (error) {
+  console.error('[Background] Failed to load bitcoinjs-lib:', error);
+}
+
 // Wallet state (in-memory)
 let walletState = {
   isUnlocked: false,
@@ -366,7 +374,7 @@ function handleRejectSign(data, sendResponse) {
 
 /**
  * Sign transaction locally in the extension (TRUE EXTERNAL SIGNING)
- * Uses bitcoinjs-lib loaded via importScripts to sign without sending keys to backend
+ * Uses bitcoinjs-lib (loaded at top of file) to sign without sending keys to backend
  */
 async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Using LOCAL signing in extension (no backend key exposure)');
@@ -383,9 +391,9 @@ async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Unsigned TX length:', unsignedTx.length);
 
   try {
-    // Load bitcoinjs-lib if not already loaded
+    // Check if bitcoinjs-lib is available
     if (typeof self.bitcoin === 'undefined') {
-      await loadBitcoinJsLib();
+      throw new Error('bitcoinjs-lib not loaded. Please reload the extension.');
     }
 
     const bitcoin = self.bitcoin;
@@ -444,23 +452,6 @@ async function signTransactionLocally(unsignedTx) {
     console.error('[Signing] Local signing error:', error);
     throw new Error(`Failed to sign transaction locally: ${error.message}`);
   }
-}
-
-/**
- * Load bitcoinjs-lib from CDN using importScripts (for service worker)
- */
-async function loadBitcoinJsLib() {
-  return new Promise((resolve, reject) => {
-    try {
-      console.log('[Signing] Loading bitcoinjs-lib via importScripts...');
-      importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js');
-      console.log('[Signing] bitcoinjs-lib loaded successfully');
-      resolve();
-    } catch (error) {
-      console.error('[Signing] Failed to load bitcoinjs-lib:', error);
-      reject(new Error('Failed to load bitcoinjs-lib: ' + error.message));
-    }
-  });
 }
 
 /**
