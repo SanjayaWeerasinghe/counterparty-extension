@@ -10,6 +10,7 @@ let walletStatus = null;
  * Initialize popup
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[Popup] Initializing...');
   await loadWalletStatus();
 
   // Add enter key handlers
@@ -24,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('unlockPassword')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') unlockWallet();
   });
+
+  console.log('[Popup] Event listeners attached');
 });
 
 /**
@@ -66,24 +69,39 @@ function showView(viewId) {
  * Show setup tab (create or import)
  */
 function showSetupTab(tab) {
-  // Update tab buttons
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  console.log('[Popup] showSetupTab called with:', tab);
 
-  // Find and activate the correct tab button
-  const tabs = document.querySelectorAll('.tab');
-  if (tab === 'create') {
-    tabs[0]?.classList.add('active');
-  } else {
-    tabs[1]?.classList.add('active');
-  }
+  try {
+    // Update tab buttons
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
-  // Show/hide tabs
-  if (tab === 'create') {
-    document.getElementById('createTab').classList.remove('hidden');
-    document.getElementById('importTab').classList.add('hidden');
-  } else {
-    document.getElementById('createTab').classList.add('hidden');
-    document.getElementById('importTab').classList.remove('hidden');
+    // Find and activate the correct tab button
+    const tabs = document.querySelectorAll('.tab');
+    console.log('[Popup] Found tabs:', tabs.length);
+
+    if (tab === 'create') {
+      tabs[0]?.classList.add('active');
+    } else {
+      tabs[1]?.classList.add('active');
+    }
+
+    // Show/hide tabs
+    const createTab = document.getElementById('createTab');
+    const importTab = document.getElementById('importTab');
+
+    console.log('[Popup] createTab:', createTab, 'importTab:', importTab);
+
+    if (tab === 'create') {
+      createTab?.classList.remove('hidden');
+      importTab?.classList.add('hidden');
+    } else {
+      createTab?.classList.add('hidden');
+      importTab?.classList.remove('hidden');
+    }
+
+    console.log('[Popup] Tab switched to:', tab);
+  } catch (error) {
+    console.error('[Popup] Error in showSetupTab:', error);
   }
 }
 
@@ -91,10 +109,13 @@ function showSetupTab(tab) {
  * Create new wallet
  */
 async function createWallet() {
+  console.log('[Popup] createWallet called');
   hideMessages('create');
 
-  const password = document.getElementById('createPassword').value;
-  const passwordConfirm = document.getElementById('createPasswordConfirm').value;
+  const password = document.getElementById('createPassword')?.value;
+  const passwordConfirm = document.getElementById('createPasswordConfirm')?.value;
+
+  console.log('[Popup] Password length:', password?.length, 'Confirm length:', passwordConfirm?.length);
 
   // Validation
   if (!password || password.length < 8) {
