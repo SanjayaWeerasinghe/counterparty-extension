@@ -5,15 +5,25 @@
 
 // Import libraries
 importScripts('../lib/encryption.js');
-importScripts('../lib/bitcoin-simple.js');
 
-// Import bitcoinjs-lib from CDN for transaction signing
+// Import noble crypto libraries for Bitcoin signing (pure JS, audited, minimal)
 try {
-  importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib@6.1.5/dist/bitcoinjs-lib.min.js');
-  console.log('[Background] bitcoinjs-lib loaded successfully');
+  importScripts('https://cdn.jsdelivr.net/npm/@noble/secp256k1@1.7.1/index.js');
+  console.log('[Background] noble-secp256k1 loaded successfully');
 } catch (error) {
-  console.error('[Background] Failed to load bitcoinjs-lib:', error);
+  console.error('[Background] Failed to load noble-secp256k1:', error);
 }
+
+try {
+  importScripts('https://cdn.jsdelivr.net/npm/@noble/hashes@1.3.0/sha256.js');
+  importScripts('https://cdn.jsdelivr.net/npm/@noble/hashes@1.3.0/ripemd160.js');
+  console.log('[Background] noble-hashes loaded successfully');
+} catch (error) {
+  console.error('[Background] Failed to load noble-hashes:', error);
+}
+
+// Import Bitcoin signing library (our custom implementation)
+importScripts('../lib/bitcoin-simple.js');
 
 // Wallet state (in-memory)
 let walletState = {
@@ -374,7 +384,8 @@ function handleRejectSign(data, sendResponse) {
 
 /**
  * Sign transaction locally in the extension (TRUE EXTERNAL SIGNING)
- * Uses bitcoinjs-lib (loaded at top of file) to sign without sending keys to backend
+ * Uses BitcoinSigner with noble-secp256k1 and noble-hashes
+ * Private key NEVER leaves the extension!
  */
 async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Using LOCAL signing in extension (no backend key exposure)');
@@ -391,57 +402,8 @@ async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Unsigned TX length:', unsignedTx.length);
 
   try {
-    // Check if bitcoinjs-lib is available
-    if (typeof self.bitcoin === 'undefined') {
-      throw new Error('bitcoinjs-lib not loaded. Please reload the extension.');
-    }
-
-    const bitcoin = self.bitcoin;
-
-    // Create keypair from WIF
-    const keyPair = bitcoin.ECPair.fromWIF(privateKeyWif);
-
-    console.log('[Signing] Created keypair from WIF private key');
-
-    // Parse unsigned transaction
-    const tx = bitcoin.Transaction.fromHex(unsignedTx);
-
-    console.log('[Signing] Transaction has', tx.ins.length, 'inputs');
-
-    // Sign each input
-    for (let i = 0; i < tx.ins.length; i++) {
-      const input = tx.ins[i];
-
-      // Get the previous output script (P2PKH for standard addresses)
-      const p2pkh = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
-
-      // Create signature hash
-      const signatureHash = tx.hashForSignature(
-        i,
-        p2pkh.output,
-        bitcoin.Transaction.SIGHASH_ALL
-      );
-
-      // Sign
-      const signature = keyPair.sign(signatureHash);
-
-      // Create signature with SIGHASH_ALL flag
-      const signatureWithHashType = Buffer.concat([
-        signature,
-        Buffer.from([bitcoin.Transaction.SIGHASH_ALL])
-      ]);
-
-      // Build scriptSig: <signature> <pubkey>
-      const scriptSig = bitcoin.script.compile([
-        signatureWithHashType,
-        keyPair.publicKey
-      ]);
-
-      // Set the scriptSig
-      tx.setInputScript(i, scriptSig);
-    }
-
-    const signedTx = tx.toHex();
+    // Sign transaction using our custom BitcoinSigner
+    const signedTx = await BitcoinSigner.signTransaction(privateKeyWif, unsignedTx);
 
     console.log('[Signing] Transaction signed successfully (LOCAL)');
     console.log('[Signing] Signed TX length:', signedTx.length);
