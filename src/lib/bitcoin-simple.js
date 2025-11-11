@@ -374,6 +374,15 @@ class BitcoinSigner {
    */
   static async hash160(data) {
     const sha256Hash = await crypto.subtle.digest('SHA-256', data);
+
+    // Use noble RIPEMD160 if available, otherwise fallback to custom implementation
+    if (typeof nobleRipemd160 !== 'undefined' && nobleRipemd160.ripemd160) {
+      const ripemd160Hash = nobleRipemd160.ripemd160(new Uint8Array(sha256Hash));
+      return new Uint8Array(ripemd160Hash);
+    }
+
+    // Fallback to custom implementation (has known bugs)
+    console.warn('[hash160] Using fallback RIPEMD160 implementation - may produce incorrect results');
     const ripemd160Hash = this.ripemd160(new Uint8Array(sha256Hash));
     return ripemd160Hash;
   }

@@ -15,7 +15,15 @@ try {
   console.error('[Background] Failed to load noble-secp256k1:', error);
 }
 
-// Note: Using Web Crypto API for SHA256 and custom RIPEMD160 implementation
+// Import noble RIPEMD160 wrapper
+try {
+  importScripts('../lib/noble/ripemd160-wrapper.js');
+  console.log('[Background] noble-ripemd160 loaded successfully');
+} catch (error) {
+  console.error('[Background] Failed to load noble-ripemd160:', error);
+}
+
+// Note: Using Web Crypto API for SHA256 and noble RIPEMD160
 console.log('[Background] Using Web Crypto API for hashing');
 
 // Import Bitcoin signing library (our custom implementation)
