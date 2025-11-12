@@ -36,7 +36,6 @@ function setupEventListeners() {
   document.getElementById('copyAddressBtn')?.addEventListener('click', copyAddress);
 
   // Add account
-  document.getElementById('addAccountBtn')?.addEventListener('click', showAddAccountModal);
   document.getElementById('addAccountBtnStrip')?.addEventListener('click', showAddAccountModal);
   document.getElementById('addCreateTabBtn')?.addEventListener('click', () => showAddTab('create'));
   document.getElementById('addImportTabBtn')?.addEventListener('click', () => showAddTab('import'));
@@ -89,8 +88,6 @@ async function loadWalletStatus() {
       showView('unlockedView');
       document.getElementById('currentAccountName').textContent = walletStatus.accountName || 'Account';
       document.getElementById('currentWalletAddress').textContent = walletStatus.address;
-      document.getElementById('accountCount').textContent =
-        `${walletStatus.totalAccounts} account${walletStatus.totalAccounts !== 1 ? 's' : ''}`;
 
       // Load accounts list
       await loadAccounts();
@@ -112,37 +109,11 @@ async function loadAccounts() {
 
     if (response.success) {
       accounts = response.data.accounts;
-      renderAccounts();
       renderAccountStrip();
     }
   } catch (error) {
     console.error('Failed to load accounts:', error);
   }
-}
-
-/**
- * Render accounts list
- */
-function renderAccounts() {
-  const container = document.getElementById('accountsList');
-  container.innerHTML = '';
-
-  accounts.forEach(account => {
-    const accountEl = document.createElement('div');
-    accountEl.className = `account-item ${account.isCurrent ? 'active' : ''}`;
-
-    accountEl.innerHTML = `
-      <div class="account-name">${account.name}</div>
-      <div class="account-address">${account.address}</div>
-      <div class="account-actions">
-        <button class="secondary" onclick="switchToAccount(${account.index})">${account.isCurrent ? '✓ Active' : 'Switch'}</button>
-        <button class="secondary" onclick="renameAccount(${account.index})">Rename</button>
-        ${accounts.length > 1 ? `<button class="danger" onclick="deleteAccount(${account.index})">Delete</button>` : ''}
-      </div>
-    `;
-
-    container.appendChild(accountEl);
-  });
 }
 
 /**
