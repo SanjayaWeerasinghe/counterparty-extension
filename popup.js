@@ -647,11 +647,16 @@ async function loadNFTs() {
         const nftEl = document.createElement('div');
         nftEl.className = 'nft-item';
 
+        // Use imageUrl if available, otherwise show placeholder
+        const imageHtml = nft.imageUrl
+          ? `<img src="${nft.imageUrl}" class="nft-image" alt="${nft.asset}" />`
+          : '<div class="nft-image">🖼️</div>';
+
         nftEl.innerHTML = `
-          <div class="nft-image">🖼️</div>
+          ${imageHtml}
           <div class="nft-info">
-            <div class="nft-name">${nft.description || `NFT #${nft.asset.substring(1, 8)}`}</div>
-            <div class="nft-asset">${nft.asset}</div>
+            <div class="nft-name">${nft.asset}</div>
+            <div class="nft-asset">${nft.description ? nft.description.substring(0, 20) + '...' : 'No description'}</div>
           </div>
         `;
 
