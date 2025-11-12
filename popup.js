@@ -591,7 +591,7 @@ async function loadBalances() {
     if (listEl) listEl.innerHTML = '';
 
     // Fetch balances from Counterparty API
-    const response = await fetch('http://127.0.0.1:4000/rpc/', {
+    const response = await fetch('http://5.189.162.95:4000/rpc/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -651,7 +651,7 @@ async function loadNFTs() {
     if (listEl) listEl.innerHTML = '';
 
     // Fetch NFTs (assets with supply 1 and divisible false)
-    const response = await fetch('http://127.0.0.1:4000/rpc/', {
+    const response = await fetch('http://5.189.162.95:4000/rpc/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
