@@ -44,6 +44,10 @@ function setupEventListeners() {
   document.getElementById('cancelAddBtn')?.addEventListener('click', hideAddAccountModal);
   document.getElementById('cancelAddImportBtn')?.addEventListener('click', hideAddAccountModal);
 
+  // View tabs (Assets/Collection)
+  document.getElementById('assetsTabBtn')?.addEventListener('click', () => showContentTab('assets'));
+  document.getElementById('collectionTabBtn')?.addEventListener('click', () => showContentTab('collection'));
+
   // Enter key handlers
   document.getElementById('createPasswordConfirm')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') createWallet();
@@ -89,8 +93,9 @@ async function loadWalletStatus() {
       document.getElementById('currentAccountName').textContent = walletStatus.accountName || 'Account';
       document.getElementById('currentWalletAddress').textContent = walletStatus.address;
 
-      // Load accounts list
+      // Load accounts list and balances
       await loadAccounts();
+      await loadBalances();
     }
   } catch (error) {
     console.error('Failed to load wallet status:', error);
@@ -547,4 +552,156 @@ function hideMessages(context) {
 
   if (errorEl) errorEl.classList.add('hidden');
   if (successEl) successEl.classList.add('hidden');
+}
+
+/**
+ * Show content tab (Assets or Collection)
+ */
+function showContentTab(tab) {
+  // Update tab buttons
+  const tabs = document.querySelectorAll('.view-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+
+  if (tab === 'assets') {
+    document.getElementById('assetsTabBtn')?.classList.add('active');
+    document.getElementById('assetsView')?.classList.add('active');
+    document.getElementById('collectionView')?.classList.remove('active');
+  } else {
+    document.getElementById('collectionTabBtn')?.classList.add('active');
+    document.getElementById('assetsView')?.classList.remove('active');
+    document.getElementById('collectionView')?.classList.add('active');
+    // Load NFTs when switching to collection tab
+    loadNFTs();
+  }
+}
+
+/**
+ * Load balances for current account
+ */
+async function loadBalances() {
+  const loadingEl = document.getElementById('balancesLoading');
+  const errorEl = document.getElementById('balancesError');
+  const listEl = document.getElementById('balancesList');
+
+  if (!walletStatus?.address) return;
+
+  try {
+    loadingEl?.classList.remove('hidden');
+    errorEl?.classList.add('hidden');
+    if (listEl) listEl.innerHTML = '';
+
+    // Fetch balances from Counterparty API
+    const response = await fetch('http://127.0.0.1:4000/rpc/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'get_balances',
+        params: {
+          filters: [{ field: 'address', op: '==', value: walletStatus.address }]
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    loadingEl?.classList.add('hidden');
+
+    if (data.result && data.result.length > 0) {
+      const balances = data.result;
+
+      balances.forEach(balance => {
+        const balanceEl = document.createElement('div');
+        balanceEl.className = 'balance-item';
+
+        const quantity = balance.quantity / 100000000; // Convert satoshis
+
+        balanceEl.innerHTML = `
+          <div class="balance-asset">${balance.asset}</div>
+          <div class="balance-amount">${quantity.toFixed(8)}</div>
+        `;
+
+        listEl?.appendChild(balanceEl);
+      });
+    } else {
+      listEl.innerHTML = '<div class="empty-state">No assets found</div>';
+    }
+  } catch (error) {
+    console.error('Failed to load balances:', error);
+    loadingEl?.classList.add('hidden');
+    errorEl?.classList.remove('hidden');
+    errorEl.textContent = 'Failed to load balances';
+  }
+}
+
+/**
+ * Load NFTs for current account
+ */
+async function loadNFTs() {
+  const loadingEl = document.getElementById('nftsLoading');
+  const errorEl = document.getElementById('nftsError');
+  const listEl = document.getElementById('nftsList');
+
+  if (!walletStatus?.address) return;
+
+  try {
+    loadingEl?.classList.remove('hidden');
+    errorEl?.classList.add('hidden');
+    if (listEl) listEl.innerHTML = '';
+
+    // Fetch NFTs (assets with supply 1 and divisible false)
+    const response = await fetch('http://127.0.0.1:4000/rpc/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'get_balances',
+        params: {
+          filters: [
+            { field: 'address', op: '==', value: walletStatus.address }
+          ]
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    loadingEl?.classList.add('hidden');
+
+    if (data.result && data.result.length > 0) {
+      // Filter for NFT-like assets (you can refine this logic)
+      const nfts = data.result.filter(balance => {
+        // Assuming NFTs have specific patterns or you can fetch asset info
+        return balance.asset.startsWith('A') || balance.quantity === 100000000; // 1 unit
+      });
+
+      if (nfts.length > 0) {
+        nfts.forEach(nft => {
+          const nftEl = document.createElement('div');
+          nftEl.className = 'nft-item';
+
+          nftEl.innerHTML = `
+            <div class="nft-image">🖼️</div>
+            <div class="nft-info">
+              <div class="nft-name">NFT #${nft.asset.substring(1, 8)}</div>
+              <div class="nft-asset">${nft.asset}</div>
+            </div>
+          `;
+
+          listEl?.appendChild(nftEl);
+        });
+      } else {
+        listEl.innerHTML = '<div class="empty-state">No NFTs found</div>';
+      }
+    } else {
+      listEl.innerHTML = '<div class="empty-state">No NFTs found</div>';
+    }
+  } catch (error) {
+    console.error('Failed to load NFTs:', error);
+    loadingEl?.classList.add('hidden');
+    errorEl?.classList.remove('hidden');
+    errorEl.textContent = 'Failed to load NFTs';
+  }
 }
