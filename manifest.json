@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Counterparty Signer",
-  "version": "1.0.0",
-  "description": "Secure wallet for signing Counterparty transactions",
+  "name": "BitcoinNU Wallet",
+  "version": "2.0.0",
+  "description": "Multi-account Bitcoin wallet for signing Counterparty transactions",
 
   "permissions": [
     "storage",
