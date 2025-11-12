@@ -590,36 +590,22 @@ async function loadBalances() {
     errorEl?.classList.add('hidden');
     if (listEl) listEl.innerHTML = '';
 
-    // Fetch balances from Counterparty API
-    const response = await fetch('http://5.189.162.95:4000/rpc/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'get_balances',
-        params: {
-          filters: [{ field: 'address', op: '==', value: walletStatus.address }]
-        }
-      })
-    });
-
+    // Fetch balances from NFT API Gateway
+    const response = await fetch(`http://5.189.162.95:3000/api/wallet/balances/${walletStatus.address}`);
     const data = await response.json();
 
     loadingEl?.classList.add('hidden');
 
-    if (data.result && data.result.length > 0) {
-      const balances = data.result;
+    if (data.success && data.balances && data.balances.length > 0) {
+      const balances = data.balances;
 
       balances.forEach(balance => {
         const balanceEl = document.createElement('div');
         balanceEl.className = 'balance-item';
 
-        const quantity = balance.quantity / 100000000; // Convert satoshis
-
         balanceEl.innerHTML = `
           <div class="balance-asset">${balance.asset}</div>
-          <div class="balance-amount">${quantity.toFixed(8)}</div>
+          <div class="balance-amount">${balance.quantityNormalized.toFixed(8)}</div>
         `;
 
         listEl?.appendChild(balanceEl);
@@ -650,51 +636,27 @@ async function loadNFTs() {
     errorEl?.classList.add('hidden');
     if (listEl) listEl.innerHTML = '';
 
-    // Fetch NFTs (assets with supply 1 and divisible false)
-    const response = await fetch('http://5.189.162.95:4000/rpc/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'get_balances',
-        params: {
-          filters: [
-            { field: 'address', op: '==', value: walletStatus.address }
-          ]
-        }
-      })
-    });
-
+    // Fetch NFTs from NFT API Gateway
+    const response = await fetch(`http://5.189.162.95:3000/api/wallet/nfts/${walletStatus.address}`);
     const data = await response.json();
 
     loadingEl?.classList.add('hidden');
 
-    if (data.result && data.result.length > 0) {
-      // Filter for NFT-like assets (you can refine this logic)
-      const nfts = data.result.filter(balance => {
-        // Assuming NFTs have specific patterns or you can fetch asset info
-        return balance.asset.startsWith('A') || balance.quantity === 100000000; // 1 unit
+    if (data.success && data.nfts && data.nfts.length > 0) {
+      data.nfts.forEach(nft => {
+        const nftEl = document.createElement('div');
+        nftEl.className = 'nft-item';
+
+        nftEl.innerHTML = `
+          <div class="nft-image">🖼️</div>
+          <div class="nft-info">
+            <div class="nft-name">${nft.description || `NFT #${nft.asset.substring(1, 8)}`}</div>
+            <div class="nft-asset">${nft.asset}</div>
+          </div>
+        `;
+
+        listEl?.appendChild(nftEl);
       });
-
-      if (nfts.length > 0) {
-        nfts.forEach(nft => {
-          const nftEl = document.createElement('div');
-          nftEl.className = 'nft-item';
-
-          nftEl.innerHTML = `
-            <div class="nft-image">🖼️</div>
-            <div class="nft-info">
-              <div class="nft-name">NFT #${nft.asset.substring(1, 8)}</div>
-              <div class="nft-asset">${nft.asset}</div>
-            </div>
-          `;
-
-          listEl?.appendChild(nftEl);
-        });
-      } else {
-        listEl.innerHTML = '<div class="empty-state">No NFTs found</div>';
-      }
     } else {
       listEl.innerHTML = '<div class="empty-state">No NFTs found</div>';
     }
