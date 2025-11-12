@@ -1,6 +1,6 @@
 /**
- * BitcoinNU Wallet - Phantom-style Sidebar UI
- * Multi-account management with sidebar navigation
+ * Enhanced Popup UI with Multi-Account Support
+ * Handles wallet creation, import, unlock, and account management
  */
 
 // UI state
@@ -11,17 +11,20 @@ let accounts = [];
  * Initialize popup
  */
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('[Popup] Initializing BitcoinNU Wallet...');
+  console.log('[Popup] Initializing multi-account popup...');
   await loadWalletStatus();
+
+  // Setup event listeners
   setupEventListeners();
-  console.log('[Popup] BitcoinNU Wallet initialized');
+
+  console.log('[Popup] Multi-account popup initialized');
 });
 
 /**
  * Setup all event listeners
  */
 function setupEventListeners() {
-  // Setup tabs
+  // Tab switching (setup view)
   document.getElementById('createTabBtn')?.addEventListener('click', () => showSetupTab('create'));
   document.getElementById('importTabBtn')?.addEventListener('click', () => showSetupTab('import'));
 
@@ -34,6 +37,7 @@ function setupEventListeners() {
 
   // Add account
   document.getElementById('addAccountBtn')?.addEventListener('click', showAddAccountModal);
+  document.getElementById('addAccountBtnStrip')?.addEventListener('click', showAddAccountModal);
   document.getElementById('addCreateTabBtn')?.addEventListener('click', () => showAddTab('create'));
   document.getElementById('addImportTabBtn')?.addEventListener('click', () => showAddTab('import'));
   document.getElementById('addCreateAccountBtn')?.addEventListener('click', addCreateAccount);
@@ -83,15 +87,17 @@ async function loadWalletStatus() {
         `${walletStatus.totalAccounts} account${walletStatus.totalAccounts !== 1 ? 's' : ''}`;
     } else {
       showView('unlockedView');
-      document.getElementById('currentAccountName').textContent = walletStatus.accountName || 'Account 1';
+      document.getElementById('currentAccountName').textContent = walletStatus.accountName || 'Account';
       document.getElementById('currentWalletAddress').textContent = walletStatus.address;
+      document.getElementById('accountCount').textContent =
+        `${walletStatus.totalAccounts} account${walletStatus.totalAccounts !== 1 ? 's' : ''}`;
 
-      // Load accounts list in sidebar
+      // Load accounts list
       await loadAccounts();
     }
   } catch (error) {
     console.error('Failed to load wallet status:', error);
-    showError('main', 'Failed to connect to wallet service');
+    showError('setup', 'Failed to connect to wallet service');
   }
 }
 
@@ -106,7 +112,8 @@ async function loadAccounts() {
 
     if (response.success) {
       accounts = response.data.accounts;
-      renderSidebarAccounts();
+      renderAccounts();
+      renderAccountStrip();
     }
   } catch (error) {
     console.error('Failed to load accounts:', error);
@@ -114,26 +121,24 @@ async function loadAccounts() {
 }
 
 /**
- * Render accounts in sidebar
+ * Render accounts list
  */
-function renderSidebarAccounts() {
-  const container = document.getElementById('sidebarAccountsList');
-  if (!container) return;
-
+function renderAccounts() {
+  const container = document.getElementById('accountsList');
   container.innerHTML = '';
 
   accounts.forEach(account => {
     const accountEl = document.createElement('div');
-    accountEl.className = `sidebar-account-item ${account.isCurrent ? 'active' : ''}`;
-    accountEl.onclick = () => switchToAccount(account.index);
+    accountEl.className = `account-item ${account.isCurrent ? 'active' : ''}`;
 
     accountEl.innerHTML = `
-      <div class="account-icon">${getAccountIcon(account.index)}</div>
-      <div class="account-info">
-        <div class="account-name">${account.name}</div>
-        <div class="account-address-short">${shortenAddress(account.address)}</div>
+      <div class="account-name">${account.name}</div>
+      <div class="account-address">${account.address}</div>
+      <div class="account-actions">
+        <button class="secondary" onclick="switchToAccount(${account.index})">${account.isCurrent ? '✓ Active' : 'Switch'}</button>
+        <button class="secondary" onclick="renameAccount(${account.index})">Rename</button>
+        ${accounts.length > 1 ? `<button class="danger" onclick="deleteAccount(${account.index})">Delete</button>` : ''}
       </div>
-      ${account.isCurrent ? '<div class="active-indicator">●</div>' : ''}
     `;
 
     container.appendChild(accountEl);
@@ -141,25 +146,38 @@ function renderSidebarAccounts() {
 }
 
 /**
- * Get account icon emoji
+ * Render account strip (horizontal account selector)
  */
-function getAccountIcon(index) {
-  const icons = ['🔑', '💎', '⭐', '🎯', '🚀', '💰', '🎨', '🌟', '⚡', '🔥'];
-  return icons[index % icons.length];
-}
+function renderAccountStrip() {
+  const container = document.getElementById('accountStrip');
+  if (!container) return;
 
-/**
- * Shorten Bitcoin address
- */
-function shortenAddress(address) {
-  if (!address || address.length < 10) return address;
-  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  container.innerHTML = '';
+
+  const icons = ['🔑', '💎', '⭐', '🎯', '🚀', '💰', '🎨', '🌟', '⚡', '🔥'];
+
+  accounts.forEach(account => {
+    const stripItem = document.createElement('div');
+    stripItem.className = `account-strip-item ${account.isCurrent ? 'active' : ''}`;
+    stripItem.onclick = () => {
+      if (!account.isCurrent) {
+        switchToAccount(account.index);
+      }
+    };
+
+    stripItem.innerHTML = `
+      <div class="account-strip-icon">${icons[account.index % icons.length]}</div>
+      <div class="account-strip-name">${account.name}</div>
+    `;
+
+    container.appendChild(stripItem);
+  });
 }
 
 /**
  * Switch to different account
  */
-async function switchToAccount(accountIndex) {
+window.switchToAccount = async function(accountIndex) {
   const password = prompt('Enter password to unlock account:');
   if (!password) return;
 
@@ -172,15 +190,15 @@ async function switchToAccount(accountIndex) {
     if (response.success) {
       await loadWalletStatus();
     } else {
-      showError('main', response.error || 'Failed to switch account');
+      showError('accounts', response.error || 'Failed to switch account');
     }
   } catch (error) {
-    showError('main', error.message);
+    showError('accounts', error.message);
   }
-}
+};
 
 /**
- * Rename account (triggered by right-click context menu in future)
+ * Rename account
  */
 window.renameAccount = async function(accountIndex) {
   const newName = prompt('Enter new account name:', accounts[accountIndex].name);
@@ -195,15 +213,15 @@ window.renameAccount = async function(accountIndex) {
     if (response.success) {
       await loadAccounts();
     } else {
-      showError('main', response.error || 'Failed to rename account');
+      showError('accounts', response.error || 'Failed to rename account');
     }
   } catch (error) {
-    showError('main', error.message);
+    showError('accounts', error.message);
   }
 };
 
 /**
- * Delete account (triggered by right-click context menu in future)
+ * Delete account
  */
 window.deleteAccount = async function(accountIndex) {
   const confirmDelete = confirm(`Delete ${accounts[accountIndex].name}?\n\nThis cannot be undone. Make sure you have backed up the private key!`);
@@ -218,10 +236,10 @@ window.deleteAccount = async function(accountIndex) {
     if (response.success) {
       await loadWalletStatus();
     } else {
-      showError('main', response.error || 'Failed to delete account');
+      showError('accounts', response.error || 'Failed to delete account');
     }
   } catch (error) {
-    showError('main', error.message);
+    showError('accounts', error.message);
   }
 };
 
@@ -239,9 +257,9 @@ function showView(viewId) {
  * Show setup tab (create or import)
  */
 function showSetupTab(tab) {
-  const tabs = document.querySelectorAll('#setupView .tab');
-  tabs.forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
+  const tabs = document.querySelectorAll('#setupView .tab');
   if (tab === 'create') {
     tabs[0]?.classList.add('active');
     document.getElementById('createTab')?.classList.remove('hidden');
@@ -275,6 +293,7 @@ function showAddTab(tab) {
  * Show add account modal
  */
 function showAddAccountModal() {
+  document.getElementById('unlockedView').style.display = 'none';
   document.getElementById('addAccountModal').classList.add('active');
   showAddTab('create');
 }
@@ -284,6 +303,7 @@ function showAddAccountModal() {
  */
 function hideAddAccountModal() {
   document.getElementById('addAccountModal').classList.remove('active');
+  document.getElementById('unlockedView').style.display = 'block';
 
   // Clear inputs
   document.getElementById('addCreatePassword').value = '';
@@ -513,7 +533,7 @@ async function copyAddress() {
       const btn = document.getElementById('copyAddressBtn');
       const originalText = btn.textContent;
       btn.textContent = '✓ Copied!';
-      btn.style.background = 'rgba(171, 71, 188, 0.3)';
+      btn.style.background = 'rgba(34, 197, 94, 0.3)';
 
       setTimeout(() => {
         btn.textContent = originalText;
