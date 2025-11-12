@@ -12,8 +12,8 @@
     }
 
     body {
-      width: 350px;
-      min-height: 400px;
+      width: 380px;
+      min-height: 500px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: #fff;
@@ -25,7 +25,7 @@
 
     .header {
       text-align: center;
-      margin-bottom: 30px;
+      margin-bottom: 25px;
     }
 
     .header h1 {
@@ -43,8 +43,8 @@
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
       border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 15px;
+      padding: 16px;
+      margin-bottom: 12px;
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
@@ -54,21 +54,21 @@
 
     .form-group label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
     input, textarea {
       width: 100%;
-      padding: 12px;
+      padding: 10px 12px;
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.1);
       color: #fff;
-      font-size: 14px;
+      font-size: 13px;
       font-family: inherit;
     }
 
@@ -84,19 +84,19 @@
 
     textarea {
       resize: vertical;
-      min-height: 80px;
+      min-height: 70px;
       font-family: monospace;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     button {
       width: 100%;
-      padding: 12px;
+      padding: 11px;
       border: none;
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.2);
       color: #fff;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
@@ -124,17 +124,61 @@
 
     button.secondary {
       background: rgba(255, 255, 255, 0.1);
-      margin-top: 10px;
+      margin-top: 8px;
+      font-size: 12px;
     }
 
-    .address-display {
-      background: rgba(0, 0, 0, 0.2);
+    button.danger {
+      background: rgba(239, 68, 68, 0.3);
+      font-size: 11px;
+    }
+
+    button.danger:hover {
+      background: rgba(239, 68, 68, 0.5);
+    }
+
+    .account-item {
+      background: rgba(255, 255, 255, 0.1);
       padding: 12px;
       border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+    }
+
+    .account-item:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .account-item.active {
+      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .account-name {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .account-address {
       font-family: monospace;
-      font-size: 12px;
+      font-size: 10px;
+      opacity: 0.8;
       word-break: break-all;
-      margin-bottom: 15px;
+    }
+
+    .account-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .account-actions button {
+      flex: 1;
+      padding: 6px;
+      font-size: 10px;
     }
 
     .status {
@@ -145,7 +189,7 @@
       background: rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       font-size: 12px;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
     }
 
     .status-indicator {
@@ -163,18 +207,18 @@
 
     .tabs {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 8px;
+      margin-bottom: 16px;
     }
 
     .tab {
       flex: 1;
-      padding: 10px;
+      padding: 9px;
       background: rgba(255, 255, 255, 0.1);
       border: none;
       border-radius: 8px;
       color: #fff;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       cursor: pointer;
       text-transform: uppercase;
@@ -199,8 +243,8 @@
       color: #fff;
       padding: 10px 12px;
       border-radius: 8px;
-      font-size: 12px;
-      margin-bottom: 15px;
+      font-size: 11px;
+      margin-bottom: 12px;
     }
 
     .success {
@@ -209,21 +253,56 @@
       color: #fff;
       padding: 10px 12px;
       border-radius: 8px;
-      font-size: 12px;
-      margin-bottom: 15px;
+      font-size: 11px;
+      margin-bottom: 12px;
     }
 
     .hidden {
       display: none;
     }
 
-    .link {
-      color: #fff;
-      text-decoration: underline;
-      cursor: pointer;
-      font-size: 12px;
-      margin-top: 10px;
-      display: inline-block;
+    .accounts-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .accounts-header h3 {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .add-account-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      width: auto;
+    }
+
+    .account-count {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+
+    .scroll-container {
+      max-height: 250px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+    }
+
+    .scroll-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .scroll-container::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    .scroll-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
     }
   </style>
 </head>
@@ -231,7 +310,7 @@
   <div class="container">
     <div class="header">
       <h1>🔐 Counterparty Signer</h1>
-      <p>Secure Bitcoin Wallet</p>
+      <p>Multi-Account Bitcoin Wallet</p>
     </div>
 
     <!-- Setup View (no wallet) -->
@@ -257,7 +336,7 @@
             <input type="password" id="createPasswordConfirm" placeholder="Confirm password">
           </div>
 
-          <button class="primary" id="createWalletBtn">Create Wallet</button>
+          <button class="primary" id="createWalletBtn">Create First Account</button>
         </div>
 
         <!-- Import Wallet -->
@@ -267,12 +346,12 @@
 
           <div class="form-group">
             <label>Bitcoin Address</label>
-            <input type="text" id="importAddress" placeholder="Enter your Bitcoin address (1... or bc1...)">
+            <input type="text" id="importAddress" placeholder="Enter your Bitcoin address">
           </div>
 
           <div class="form-group">
-            <label>Private Key (64 hex chars)</label>
-            <textarea id="importPrivateKey" placeholder="Enter your private key (64 character hex string)"></textarea>
+            <label>Private Key (WIF Format)</label>
+            <textarea id="importPrivateKey" placeholder="Enter WIF private key (starts with K or L)"></textarea>
           </div>
 
           <div class="form-group">
@@ -285,7 +364,7 @@
             <input type="password" id="importPasswordConfirm" placeholder="Confirm password">
           </div>
 
-          <button class="primary" id="importWalletBtn">Import Wallet</button>
+          <button class="primary" id="importWalletBtn">Import First Account</button>
         </div>
       </div>
     </div>
@@ -298,6 +377,7 @@
             <span class="status-indicator locked"></span>
             Wallet Locked
           </span>
+          <span class="account-count" id="lockedAccountCount"></span>
         </div>
 
         <div id="unlockError" class="error hidden"></div>
@@ -317,22 +397,84 @@
         <div class="status">
           <span>
             <span class="status-indicator"></span>
-            Wallet Unlocked
+            <span id="currentAccountName">Account 1</span>
           </span>
-          <button class="secondary" style="width: auto; padding: 6px 12px; font-size: 11px;" id="lockWalletBtn">Lock</button>
+          <button class="secondary" style="width: auto; padding: 5px 10px; font-size: 10px;" id="lockWalletBtn">Lock</button>
         </div>
 
         <div class="form-group">
-          <label>Your Address</label>
-          <div class="address-display" id="walletAddress">Loading...</div>
+          <label>Current Address</label>
+          <div class="account-address" id="currentWalletAddress" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">Loading...</div>
         </div>
 
         <button id="copyAddressBtn">Copy Address</button>
-        <button class="secondary" id="viewPrivateKeyBtn">View Private Key</button>
+      </div>
+
+      <div class="card">
+        <div class="accounts-header">
+          <div>
+            <h3>Accounts</h3>
+            <div class="account-count" id="accountCount">0 accounts</div>
+          </div>
+          <button class="add-account-btn secondary" id="addAccountBtn">+ Add</button>
+        </div>
+
+        <div class="scroll-container" id="accountsList">
+          <!-- Accounts will be loaded here -->
+        </div>
+
+        <div id="accountsError" class="error hidden"></div>
+      </div>
+    </div>
+
+    <!-- Add Account Modal (overlaid when adding) -->
+    <div id="addAccountModal" class="view">
+      <div class="card">
+        <h3 style="margin-bottom: 16px; font-size: 15px;">Add New Account</h3>
+
+        <div class="tabs">
+          <button class="tab active" id="addCreateTabBtn">Create</button>
+          <button class="tab" id="addImportTabBtn">Import</button>
+        </div>
+
+        <div id="addError" class="error hidden"></div>
+        <div id="addSuccess" class="success hidden"></div>
+
+        <!-- Create New Account -->
+        <div id="addCreateTab">
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="addCreatePassword" placeholder="Enter wallet password">
+          </div>
+
+          <button class="primary" id="addCreateAccountBtn">Create Account</button>
+          <button class="secondary" id="cancelAddBtn">Cancel</button>
+        </div>
+
+        <!-- Import Existing Account -->
+        <div id="addImportTab" class="hidden">
+          <div class="form-group">
+            <label>Bitcoin Address</label>
+            <input type="text" id="addImportAddress" placeholder="Enter Bitcoin address">
+          </div>
+
+          <div class="form-group">
+            <label>Private Key (WIF)</label>
+            <textarea id="addImportPrivateKey" placeholder="Enter WIF private key"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="addImportPassword" placeholder="Enter wallet password">
+          </div>
+
+          <button class="primary" id="addImportAccountBtn">Import Account</button>
+          <button class="secondary" id="cancelAddImportBtn">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="popup-new.js"></script>
 </body>
 </html>

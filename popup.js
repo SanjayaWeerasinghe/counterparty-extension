@@ -1,19 +1,30 @@
 /**
- * Popup UI Logic
- * Handles wallet creation, import, unlock, and management
+ * Enhanced Popup UI with Multi-Account Support
+ * Handles wallet creation, import, unlock, and account management
  */
 
 // UI state
 let walletStatus = null;
+let accounts = [];
 
 /**
  * Initialize popup
  */
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('[Popup] Initializing...');
+  console.log('[Popup] Initializing multi-account popup...');
   await loadWalletStatus();
 
-  // Tab switching
+  // Setup event listeners
+  setupEventListeners();
+
+  console.log('[Popup] Multi-account popup initialized');
+});
+
+/**
+ * Setup all event listeners
+ */
+function setupEventListeners() {
+  // Tab switching (setup view)
   document.getElementById('createTabBtn')?.addEventListener('click', () => showSetupTab('create'));
   document.getElementById('importTabBtn')?.addEventListener('click', () => showSetupTab('import'));
 
@@ -23,9 +34,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('unlockWalletBtn')?.addEventListener('click', unlockWallet);
   document.getElementById('lockWalletBtn')?.addEventListener('click', lockWallet);
   document.getElementById('copyAddressBtn')?.addEventListener('click', copyAddress);
-  document.getElementById('viewPrivateKeyBtn')?.addEventListener('click', viewPrivateKey);
 
-  // Add enter key handlers
+  // Add account
+  document.getElementById('addAccountBtn')?.addEventListener('click', showAddAccountModal);
+  document.getElementById('addCreateTabBtn')?.addEventListener('click', () => showAddTab('create'));
+  document.getElementById('addImportTabBtn')?.addEventListener('click', () => showAddTab('import'));
+  document.getElementById('addCreateAccountBtn')?.addEventListener('click', addCreateAccount);
+  document.getElementById('addImportAccountBtn')?.addEventListener('click', addImportAccount);
+  document.getElementById('cancelAddBtn')?.addEventListener('click', hideAddAccountModal);
+  document.getElementById('cancelAddImportBtn')?.addEventListener('click', hideAddAccountModal);
+
+  // Enter key handlers
   document.getElementById('createPasswordConfirm')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') createWallet();
   });
@@ -38,8 +57,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') unlockWallet();
   });
 
-  console.log('[Popup] Event listeners attached');
-});
+  document.getElementById('addCreatePassword')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addCreateAccount();
+  });
+
+  document.getElementById('addImportPassword')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addImportAccount();
+  });
+}
 
 /**
  * Load wallet status and show appropriate view
@@ -57,15 +82,135 @@ async function loadWalletStatus() {
       showView('setupView');
     } else if (!walletStatus.isUnlocked) {
       showView('lockedView');
+      document.getElementById('lockedAccountCount').textContent =
+        `${walletStatus.totalAccounts} account${walletStatus.totalAccounts !== 1 ? 's' : ''}`;
     } else {
       showView('unlockedView');
-      document.getElementById('walletAddress').textContent = walletStatus.address;
+      document.getElementById('currentAccountName').textContent = walletStatus.accountName || 'Account';
+      document.getElementById('currentWalletAddress').textContent = walletStatus.address;
+      document.getElementById('accountCount').textContent =
+        `${walletStatus.totalAccounts} account${walletStatus.totalAccounts !== 1 ? 's' : ''}`;
+
+      // Load accounts list
+      await loadAccounts();
     }
   } catch (error) {
     console.error('Failed to load wallet status:', error);
-    showError('setupView', 'Failed to connect to wallet service');
+    showError('setup', 'Failed to connect to wallet service');
   }
 }
+
+/**
+ * Load accounts list
+ */
+async function loadAccounts() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'GET_ACCOUNTS'
+    });
+
+    if (response.success) {
+      accounts = response.data.accounts;
+      renderAccounts();
+    }
+  } catch (error) {
+    console.error('Failed to load accounts:', error);
+  }
+}
+
+/**
+ * Render accounts list
+ */
+function renderAccounts() {
+  const container = document.getElementById('accountsList');
+  container.innerHTML = '';
+
+  accounts.forEach(account => {
+    const accountEl = document.createElement('div');
+    accountEl.className = `account-item ${account.isCurrent ? 'active' : ''}`;
+
+    accountEl.innerHTML = `
+      <div class="account-name">${account.name}</div>
+      <div class="account-address">${account.address}</div>
+      <div class="account-actions">
+        <button class="secondary" onclick="switchToAccount(${account.index})">${account.isCurrent ? '✓ Active' : 'Switch'}</button>
+        <button class="secondary" onclick="renameAccount(${account.index})">Rename</button>
+        ${accounts.length > 1 ? `<button class="danger" onclick="deleteAccount(${account.index})">Delete</button>` : ''}
+      </div>
+    `;
+
+    container.appendChild(accountEl);
+  });
+}
+
+/**
+ * Switch to different account
+ */
+window.switchToAccount = async function(accountIndex) {
+  const password = prompt('Enter password to unlock account:');
+  if (!password) return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'SWITCH_ACCOUNT',
+      data: { accountIndex, password }
+    });
+
+    if (response.success) {
+      await loadWalletStatus();
+    } else {
+      showError('accounts', response.error || 'Failed to switch account');
+    }
+  } catch (error) {
+    showError('accounts', error.message);
+  }
+};
+
+/**
+ * Rename account
+ */
+window.renameAccount = async function(accountIndex) {
+  const newName = prompt('Enter new account name:', accounts[accountIndex].name);
+  if (!newName || newName.trim() === '') return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'RENAME_ACCOUNT',
+      data: { accountIndex, newName }
+    });
+
+    if (response.success) {
+      await loadAccounts();
+    } else {
+      showError('accounts', response.error || 'Failed to rename account');
+    }
+  } catch (error) {
+    showError('accounts', error.message);
+  }
+};
+
+/**
+ * Delete account
+ */
+window.deleteAccount = async function(accountIndex) {
+  const confirmDelete = confirm(`Delete ${accounts[accountIndex].name}?\n\nThis cannot be undone. Make sure you have backed up the private key!`);
+  if (!confirmDelete) return;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'DELETE_ACCOUNT',
+      data: { accountIndex }
+    });
+
+    if (response.success) {
+      await loadWalletStatus();
+    } else {
+      showError('accounts', response.error || 'Failed to delete account');
+    }
+  } catch (error) {
+    showError('accounts', error.message);
+  }
+};
 
 /**
  * Show specific view
@@ -81,55 +226,72 @@ function showView(viewId) {
  * Show setup tab (create or import)
  */
 function showSetupTab(tab) {
-  console.log('[Popup] showSetupTab called with:', tab);
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
-  try {
-    // Update tab buttons
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-
-    // Find and activate the correct tab button
-    const tabs = document.querySelectorAll('.tab');
-    console.log('[Popup] Found tabs:', tabs.length);
-
-    if (tab === 'create') {
-      tabs[0]?.classList.add('active');
-    } else {
-      tabs[1]?.classList.add('active');
-    }
-
-    // Show/hide tabs
-    const createTab = document.getElementById('createTab');
-    const importTab = document.getElementById('importTab');
-
-    console.log('[Popup] createTab:', createTab, 'importTab:', importTab);
-
-    if (tab === 'create') {
-      createTab?.classList.remove('hidden');
-      importTab?.classList.add('hidden');
-    } else {
-      createTab?.classList.add('hidden');
-      importTab?.classList.remove('hidden');
-    }
-
-    console.log('[Popup] Tab switched to:', tab);
-  } catch (error) {
-    console.error('[Popup] Error in showSetupTab:', error);
+  const tabs = document.querySelectorAll('#setupView .tab');
+  if (tab === 'create') {
+    tabs[0]?.classList.add('active');
+    document.getElementById('createTab')?.classList.remove('hidden');
+    document.getElementById('importTab')?.classList.add('hidden');
+  } else {
+    tabs[1]?.classList.add('active');
+    document.getElementById('createTab')?.classList.add('hidden');
+    document.getElementById('importTab')?.classList.remove('hidden');
   }
 }
 
 /**
- * Create new wallet
+ * Show add account tab
+ */
+function showAddTab(tab) {
+  const tabs = document.querySelectorAll('#addAccountModal .tab');
+  tabs.forEach(t => t.classList.remove('active'));
+
+  if (tab === 'create') {
+    tabs[0]?.classList.add('active');
+    document.getElementById('addCreateTab')?.classList.remove('hidden');
+    document.getElementById('addImportTab')?.classList.add('hidden');
+  } else {
+    tabs[1]?.classList.add('active');
+    document.getElementById('addCreateTab')?.classList.add('hidden');
+    document.getElementById('addImportTab')?.classList.remove('hidden');
+  }
+}
+
+/**
+ * Show add account modal
+ */
+function showAddAccountModal() {
+  document.getElementById('unlockedView').style.display = 'none';
+  document.getElementById('addAccountModal').classList.add('active');
+  showAddTab('create');
+}
+
+/**
+ * Hide add account modal
+ */
+function hideAddAccountModal() {
+  document.getElementById('addAccountModal').classList.remove('active');
+  document.getElementById('unlockedView').style.display = 'block';
+
+  // Clear inputs
+  document.getElementById('addCreatePassword').value = '';
+  document.getElementById('addImportAddress').value = '';
+  document.getElementById('addImportPrivateKey').value = '';
+  document.getElementById('addImportPassword').value = '';
+
+  hideMessages('add');
+}
+
+/**
+ * Create new wallet (first account)
  */
 async function createWallet() {
-  console.log('[Popup] createWallet called');
   hideMessages('create');
 
   const password = document.getElementById('createPassword')?.value;
   const passwordConfirm = document.getElementById('createPasswordConfirm')?.value;
 
-  console.log('[Popup] Password length:', password?.length, 'Confirm length:', passwordConfirm?.length);
-
-  // Validation
   if (!password || password.length < 8) {
     showError('create', 'Password must be at least 8 characters');
     return;
@@ -147,20 +309,18 @@ async function createWallet() {
     });
 
     if (response.success) {
-      showSuccess('create', `Wallet created! Address: ${response.data.address}`);
-
-      // Reload after 2 seconds
+      showSuccess('create', `Account created! Address: ${response.data.address}`);
       setTimeout(loadWalletStatus, 2000);
     } else {
-      showError('create', response.error || 'Failed to create wallet');
+      showError('create', response.error || 'Failed to create account');
     }
   } catch (error) {
-    showError('create', error.message || 'Failed to create wallet');
+    showError('create', error.message || 'Failed to create account');
   }
 }
 
 /**
- * Import existing wallet
+ * Import existing wallet (first account)
  */
 async function importWallet() {
   hideMessages('import');
@@ -170,13 +330,11 @@ async function importWallet() {
   const password = document.getElementById('importPassword')?.value;
   const passwordConfirm = document.getElementById('importPasswordConfirm')?.value;
 
-  // Validation
   if (!address) {
     showError('import', 'Bitcoin address is required');
     return;
   }
 
-  // Validate WIF format (starts with K or L for mainnet compressed)
   if (!privateKey || (privateKey.length !== 51 && privateKey.length !== 52)) {
     showError('import', 'Invalid private key length (WIF should be 51-52 characters)');
     return;
@@ -204,15 +362,13 @@ async function importWallet() {
     });
 
     if (response.success) {
-      showSuccess('import', `Wallet imported! Address: ${response.data.address}`);
-
-      // Reload after 2 seconds
+      showSuccess('import', `Account imported! Address: ${response.data.address}`);
       setTimeout(loadWalletStatus, 2000);
     } else {
-      showError('import', response.error || 'Failed to import wallet');
+      showError('import', response.error || 'Failed to import account');
     }
   } catch (error) {
-    showError('import', error.message || 'Failed to import wallet');
+    showError('import', error.message || 'Failed to import account');
   }
 }
 
@@ -258,6 +414,84 @@ async function lockWallet() {
 }
 
 /**
+ * Add create account
+ */
+async function addCreateAccount() {
+  hideMessages('add');
+
+  const password = document.getElementById('addCreatePassword').value;
+
+  if (!password) {
+    showError('add', 'Please enter password');
+    return;
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'CREATE_WALLET',
+      data: { password }
+    });
+
+    if (response.success) {
+      showSuccess('add', `Account created: ${response.data.accountName}`);
+      setTimeout(() => {
+        hideAddAccountModal();
+        loadWalletStatus();
+      }, 1500);
+    } else {
+      showError('add', response.error || 'Failed to create account');
+    }
+  } catch (error) {
+    showError('add', error.message);
+  }
+}
+
+/**
+ * Add import account
+ */
+async function addImportAccount() {
+  hideMessages('add');
+
+  const address = document.getElementById('addImportAddress').value.trim();
+  const privateKey = document.getElementById('addImportPrivateKey').value.trim();
+  const password = document.getElementById('addImportPassword').value;
+
+  if (!address) {
+    showError('add', 'Bitcoin address is required');
+    return;
+  }
+
+  if (!privateKey || (privateKey.length !== 51 && privateKey.length !== 52)) {
+    showError('add', 'Invalid private key format');
+    return;
+  }
+
+  if (!password) {
+    showError('add', 'Please enter password');
+    return;
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'IMPORT_WALLET',
+      data: { address, privateKey, password }
+    });
+
+    if (response.success) {
+      showSuccess('add', `Account imported: ${response.data.accountName}`);
+      setTimeout(() => {
+        hideAddAccountModal();
+        loadWalletStatus();
+      }, 1500);
+    } else {
+      showError('add', response.error || 'Failed to import account');
+    }
+  } catch (error) {
+    showError('add', error.message);
+  }
+}
+
+/**
  * Copy address to clipboard
  */
 async function copyAddress() {
@@ -265,7 +499,6 @@ async function copyAddress() {
     try {
       await navigator.clipboard.writeText(walletStatus.address);
 
-      // Show feedback
       const btn = document.getElementById('copyAddressBtn');
       const originalText = btn.textContent;
       btn.textContent = '✓ Copied!';
@@ -279,19 +512,6 @@ async function copyAddress() {
       alert('Failed to copy address');
     }
   }
-}
-
-/**
- * View private key (prompt for password)
- */
-function viewPrivateKey() {
-  const password = prompt('Enter password to view private key:');
-
-  if (!password) return;
-
-  // In production, this would decrypt and show the private key
-  // For MVP, we show a warning
-  alert('Private key viewing will be implemented in next version.\n\nFor security, private keys are encrypted and only used for signing.');
 }
 
 /**

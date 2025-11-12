@@ -32,9 +32,9 @@ importScripts('../lib/bitcoin-simple.js');
 // Wallet state (in-memory)
 let walletState = {
   isUnlocked: false,
-  address: null,
-  encryptedPrivateKey: null, // Stored in chrome.storage.local
-  privateKey: null // Only in memory when unlocked
+  currentAccountIndex: 0, // Currently selected account
+  accounts: [], // Array of {name, address, encryptedPrivateKey}
+  currentPrivateKey: null // Only in memory when unlocked
 };
 
 // Pending signing requests
@@ -45,11 +45,33 @@ const pendingSignRequests = new Map();
  */
 async function loadWalletFromStorage() {
   try {
-    const result = await chrome.storage.local.get(['encryptedPrivateKey', 'address']);
-    if (result.encryptedPrivateKey) {
-      walletState.encryptedPrivateKey = result.encryptedPrivateKey;
-      walletState.address = result.address;
-      console.log('Wallet loaded from storage');
+    const result = await chrome.storage.local.get(['accounts', 'currentAccountIndex']);
+
+    // Load accounts array
+    if (result.accounts && result.accounts.length > 0) {
+      walletState.accounts = result.accounts;
+      walletState.currentAccountIndex = result.currentAccountIndex || 0;
+      console.log(`Loaded ${walletState.accounts.length} account(s) from storage`);
+    } else {
+      // Migration: Check for old single-account format
+      const oldResult = await chrome.storage.local.get(['encryptedPrivateKey', 'address']);
+      if (oldResult.encryptedPrivateKey) {
+        console.log('Migrating old wallet format to multi-account');
+        walletState.accounts = [{
+          name: 'Account 1',
+          address: oldResult.address,
+          encryptedPrivateKey: oldResult.encryptedPrivateKey
+        }];
+        walletState.currentAccountIndex = 0;
+        // Save in new format
+        await chrome.storage.local.set({
+          accounts: walletState.accounts,
+          currentAccountIndex: 0
+        });
+        // Remove old keys
+        await chrome.storage.local.remove(['encryptedPrivateKey', 'address']);
+        console.log('Migration complete');
+      }
     }
   } catch (error) {
     console.error('Failed to load wallet from storage:', error);
@@ -99,6 +121,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleLockWallet(sendResponse);
       return true;
 
+    case 'SWITCH_ACCOUNT':
+      handleSwitchAccount(message.data, sendResponse);
+      return true;
+
+    case 'GET_ACCOUNTS':
+      handleGetAccounts(sendResponse);
+      return true;
+
+    case 'RENAME_ACCOUNT':
+      handleRenameAccount(message.data, sendResponse);
+      return true;
+
+    case 'DELETE_ACCOUNT':
+      handleDeleteAccount(message.data, sendResponse);
+      return true;
+
     case 'SIGN_TRANSACTION':
       handleSignTransactionRequest(message.data, sender, sendResponse);
       return true;
@@ -122,14 +160,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Get wallet status
  */
 async function handleGetWalletStatus(sendResponse) {
-  const hasWallet = !!walletState.encryptedPrivateKey;
+  const hasWallet = walletState.accounts.length > 0;
+  const currentAccount = walletState.accounts[walletState.currentAccountIndex];
 
   sendResponse({
     success: true,
     data: {
       hasWallet,
       isUnlocked: walletState.isUnlocked,
-      address: walletState.address
+      address: currentAccount?.address || null,
+      accountName: currentAccount?.name || null,
+      currentAccountIndex: walletState.currentAccountIndex,
+      totalAccounts: walletState.accounts.length
     }
   });
 }
@@ -154,25 +196,34 @@ async function handleCreateWallet(data, sendResponse) {
     // Encrypt private key with password
     const encryptedPrivateKey = await Encryption.encrypt(privateKeyHex, password);
 
-    // Store encrypted key and address
+    // Create account name
+    const accountName = `Account ${walletState.accounts.length + 1}`;
+
+    // Add to accounts array
+    walletState.accounts.push({
+      name: accountName,
+      address: address,
+      encryptedPrivateKey: encryptedPrivateKey
+    });
+
+    // Set as current account
+    walletState.currentAccountIndex = walletState.accounts.length - 1;
+    walletState.currentPrivateKey = privateKeyHex;
+    walletState.isUnlocked = true;
+
+    // Store in chrome.storage
     try {
       await chrome.storage.local.set({
-        encryptedPrivateKey,
-        address
+        accounts: walletState.accounts,
+        currentAccountIndex: walletState.currentAccountIndex
       });
     } catch (storageError) {
       throw new Error('Failed to save wallet to storage: ' + storageError.message);
     }
 
-    // Update wallet state
-    walletState.encryptedPrivateKey = encryptedPrivateKey;
-    walletState.address = address;
-    walletState.privateKey = privateKeyHex;
-    walletState.isUnlocked = true;
-
     sendResponse({
       success: true,
-      data: { address }
+      data: { address, accountName }
     });
   } catch (error) {
     sendResponse({
@@ -202,31 +253,43 @@ async function handleImportWallet(data, sendResponse) {
       throw new Error('Invalid WIF private key format');
     }
 
-    // Use the provided address (no derivation needed for MVP)
-    // In production, verify that the private key matches the address
+    // Check if address already exists
+    const existingAccount = walletState.accounts.find(acc => acc.address === address);
+    if (existingAccount) {
+      throw new Error('This account already exists');
+    }
 
     // Encrypt WIF private key with password
     const encryptedPrivateKey = await Encryption.encrypt(privateKey, password);
 
-    // Store encrypted WIF key and address
+    // Create account name
+    const accountName = `Account ${walletState.accounts.length + 1}`;
+
+    // Add to accounts array
+    walletState.accounts.push({
+      name: accountName,
+      address: address,
+      encryptedPrivateKey: encryptedPrivateKey
+    });
+
+    // Set as current account
+    walletState.currentAccountIndex = walletState.accounts.length - 1;
+    walletState.currentPrivateKey = privateKey; // Store as WIF
+    walletState.isUnlocked = true;
+
+    // Store in chrome.storage
     try {
       await chrome.storage.local.set({
-        encryptedPrivateKey,
-        address
+        accounts: walletState.accounts,
+        currentAccountIndex: walletState.currentAccountIndex
       });
     } catch (storageError) {
       throw new Error('Failed to save wallet to storage: ' + storageError.message);
     }
 
-    // Update wallet state (privateKey is now WIF)
-    walletState.encryptedPrivateKey = encryptedPrivateKey;
-    walletState.address = address;
-    walletState.privateKeyWif = privateKey;  // Store as WIF
-    walletState.isUnlocked = true;
-
     sendResponse({
       success: true,
-      data: { address }
+      data: { address, accountName }
     });
   } catch (error) {
     sendResponse({
@@ -243,23 +306,25 @@ async function handleUnlockWallet(data, sendResponse) {
   try {
     const { password } = data;
 
-    if (!walletState.encryptedPrivateKey) {
-      throw new Error('No wallet found');
+    if (walletState.accounts.length === 0) {
+      throw new Error('No accounts found');
     }
 
-    // Decrypt private key
+    const currentAccount = walletState.accounts[walletState.currentAccountIndex];
+
+    // Decrypt private key for current account
     const privateKey = await Encryption.decrypt(
-      walletState.encryptedPrivateKey,
+      currentAccount.encryptedPrivateKey,
       password
     );
 
     // Update state
-    walletState.privateKey = privateKey;
+    walletState.currentPrivateKey = privateKey;
     walletState.isUnlocked = true;
 
     sendResponse({
       success: true,
-      data: { address: walletState.address }
+      data: { address: currentAccount.address }
     });
   } catch (error) {
     sendResponse({
@@ -273,10 +338,139 @@ async function handleUnlockWallet(data, sendResponse) {
  * Lock wallet (clear private key from memory)
  */
 function handleLockWallet(sendResponse) {
-  walletState.privateKey = null;
+  walletState.currentPrivateKey = null;
   walletState.isUnlocked = false;
 
   sendResponse({ success: true });
+}
+
+/**
+ * Switch to different account
+ */
+async function handleSwitchAccount(data, sendResponse) {
+  try {
+    const { accountIndex, password } = data;
+
+    if (accountIndex < 0 || accountIndex >= walletState.accounts.length) {
+      throw new Error('Invalid account index');
+    }
+
+    // If unlocked, decrypt the new account's private key
+    if (password) {
+      const account = walletState.accounts[accountIndex];
+      const privateKey = await Encryption.decrypt(account.encryptedPrivateKey, password);
+      walletState.currentPrivateKey = privateKey;
+      walletState.isUnlocked = true;
+    } else {
+      // Just switch account, remain locked
+      walletState.currentPrivateKey = null;
+      walletState.isUnlocked = false;
+    }
+
+    walletState.currentAccountIndex = accountIndex;
+
+    // Save current index
+    await chrome.storage.local.set({ currentAccountIndex: accountIndex });
+
+    const currentAccount = walletState.accounts[accountIndex];
+    sendResponse({
+      success: true,
+      data: { address: currentAccount.address, accountName: currentAccount.name }
+    });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Get all accounts
+ */
+function handleGetAccounts(sendResponse) {
+  const accounts = walletState.accounts.map((acc, index) => ({
+    index,
+    name: acc.name,
+    address: acc.address,
+    isCurrent: index === walletState.currentAccountIndex
+  }));
+
+  sendResponse({
+    success: true,
+    data: { accounts }
+  });
+}
+
+/**
+ * Rename account
+ */
+async function handleRenameAccount(data, sendResponse) {
+  try {
+    const { accountIndex, newName } = data;
+
+    if (accountIndex < 0 || accountIndex >= walletState.accounts.length) {
+      throw new Error('Invalid account index');
+    }
+
+    if (!newName || newName.trim().length === 0) {
+      throw new Error('Account name cannot be empty');
+    }
+
+    walletState.accounts[accountIndex].name = newName.trim();
+
+    // Save to storage
+    await chrome.storage.local.set({ accounts: walletState.accounts });
+
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Delete account
+ */
+async function handleDeleteAccount(data, sendResponse) {
+  try {
+    const { accountIndex } = data;
+
+    if (walletState.accounts.length === 1) {
+      throw new Error('Cannot delete the only account');
+    }
+
+    if (accountIndex < 0 || accountIndex >= walletState.accounts.length) {
+      throw new Error('Invalid account index');
+    }
+
+    // Remove account
+    walletState.accounts.splice(accountIndex, 1);
+
+    // Adjust current index if needed
+    if (walletState.currentAccountIndex >= accountIndex) {
+      walletState.currentAccountIndex = Math.max(0, walletState.currentAccountIndex - 1);
+    }
+
+    // Lock wallet after deletion
+    walletState.currentPrivateKey = null;
+    walletState.isUnlocked = false;
+
+    // Save to storage
+    await chrome.storage.local.set({
+      accounts: walletState.accounts,
+      currentAccountIndex: walletState.currentAccountIndex
+    });
+
+    sendResponse({ success: true });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
 }
 
 /**
@@ -395,12 +589,13 @@ async function signTransactionLocally(unsignedTx) {
   console.log('[Signing] Using LOCAL signing in extension (no backend key exposure)');
 
   // Check if wallet is unlocked in memory
-  if (!walletState.isUnlocked || !walletState.privateKeyWif) {
+  if (!walletState.isUnlocked || !walletState.currentPrivateKey) {
     throw new Error('Wallet is locked. Please unlock first.');
   }
 
-  const privateKeyWif = walletState.privateKeyWif;
-  const address = walletState.address;
+  const privateKeyWif = walletState.currentPrivateKey;
+  const currentAccount = walletState.accounts[walletState.currentAccountIndex];
+  const address = currentAccount.address;
 
   console.log('[Signing] Wallet address:', address);
   console.log('[Signing] Unsigned TX length:', unsignedTx.length);
